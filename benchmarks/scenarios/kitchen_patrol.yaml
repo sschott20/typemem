@@ -1,0 +1,33 @@
+name: "Kitchen patrol for 30 minutes"
+description: "Robot patrols a kitchen, observing objects and completing tasks"
+duration_minutes: 30
+
+events:
+  - time: 0
+    data: {text: "Red cup on kitchen counter near sink", objects: [{name: "cup", position: [1.0, 2.0, 0.5]}]}
+  - time: 5
+    data: {text: "Blue plate on dining table", objects: [{name: "plate", position: [3.0, 1.0, 0.5]}]}
+  - time: 30
+    data: {text: "Person entered kitchen from hallway", objects: [{name: "person", position: [0.0, 0.0, 1.0]}]}
+  - time: 60
+    data: {text: "Cup moved to dining table by person", objects: [{name: "cup", position: [3.0, 1.5, 0.5]}]}
+  - time: 120
+    data: {text: "Person left kitchen", objects: []}
+  - time: 300
+    data: {text: "Cat jumped on counter near sink", objects: [{name: "cat", position: [1.0, 2.0, 0.8]}]}
+  - time: 600
+    data: {text: "Cup still on dining table, plate moved to counter", objects: [{name: "cup", position: [3.0, 1.5, 0.5]}, {name: "plate", position: [1.0, 2.5, 0.5]}]}
+
+queries:
+  - time: 90
+    query: "Where is the cup?"
+    ground_truth: ["dining table", "moved"]
+    token_budget: 400
+  - time: 180
+    query: "Has anyone been in the kitchen recently?"
+    ground_truth: ["person", "entered", "left"]
+    token_budget: 400
+  - time: 700
+    query: "What objects are in the kitchen and where?"
+    ground_truth: ["cup", "dining table", "plate", "counter", "cat"]
+    token_budget: 400
