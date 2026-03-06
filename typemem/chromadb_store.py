@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 import chromadb
 
 from typemem.store import MemoryStore
+
+logger = logging.getLogger(__name__)
 from typemem.types import MemoryEntry, SearchResult, make_id
 
 
@@ -35,6 +39,7 @@ class ChromaDBStore(MemoryStore):
         try:
             result = self._collection.query(**kwargs)
         except Exception:
+            logger.warning("ChromaDB query failed", exc_info=True)
             return []
         results = []
         for i, doc_id in enumerate(result["ids"][0]):
@@ -46,7 +51,7 @@ class ChromaDBStore(MemoryStore):
         try:
             self._collection.delete(ids=[id])
         except Exception:
-            pass
+            logger.warning("ChromaDB delete failed for id=%s", id, exc_info=True)
 
     def update(self, id: str, text: str | None = None, metadata: dict | None = None) -> None:
         kwargs = {"ids": [id]}
@@ -60,6 +65,7 @@ class ChromaDBStore(MemoryStore):
         try:
             result = self._collection.get(ids=[id], include=["documents", "metadatas"])
         except Exception:
+            logger.warning("ChromaDB get failed for id=%s", id, exc_info=True)
             return None
         if not result["ids"]:
             return None

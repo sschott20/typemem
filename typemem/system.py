@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 from typemem.store import MemoryStore
 from typemem.types import ObservationFn, ConsolidationFn, InjectionFn
@@ -51,7 +54,12 @@ class MemorySystem:
         return self._injections[name](query, self.store, token_budget)
 
     def start(self, data_source: Callable[[], dict]) -> None:
-        """Start background threads for observation and consolidation."""
+        """Start background threads for observation and consolidation.
+
+        Not thread-safe: call from a single thread only. The spawned daemon
+        threads share ``self.store``, so the underlying store implementation
+        must be safe for concurrent reads/writes.
+        """
         self._running = True
         obs_thread = threading.Thread(
             target=self._obs_loop, args=(data_source,), daemon=True,
@@ -80,7 +88,7 @@ class MemorySystem:
                         raw_data = data_source()
                         fn(raw_data, self.store)
                     except Exception:
-                        pass
+                        logger.warning("Observation '%s' failed", name, exc_info=True)
                     last_run[name] = now
             time.sleep(0.1)
 
@@ -93,6 +101,6 @@ class MemorySystem:
                     try:
                         fn(self.store)
                     except Exception:
-                        pass
+                        logger.warning("Consolidation '%s' failed", name, exc_info=True)
                     last_run[name] = now
             time.sleep(0.5)

@@ -87,19 +87,11 @@ _SAMPLE_QUERIES = [
 ]
 
 
-def _seed_store(store: ChromaDBStore, n: int, batch_size: int = 100) -> None:
-    """Add n diverse memories to the store using batched inserts for speed."""
-    from typemem.types import make_id
-
-    for start in range(0, n, batch_size):
-        end = min(start + batch_size, n)
-        ids = [make_id() for _ in range(end - start)]
-        docs = [
-            f"[t={i}] {_SAMPLE_OBSERVATIONS[i % len(_SAMPLE_OBSERVATIONS)]} (observation #{i})"
-            for i in range(start, end)
-        ]
-        # Use ChromaDB collection's batch add directly for efficiency
-        store._collection.add(ids=ids, documents=docs)
+def _seed_store(store: ChromaDBStore, n: int) -> None:
+    """Add n diverse memories to the store via the public API."""
+    for i in range(n):
+        doc = f"[t={i}] {_SAMPLE_OBSERVATIONS[i % len(_SAMPLE_OBSERVATIONS)]} (observation #{i})"
+        store.add(doc)
 
 
 def run_latency_benchmark(
