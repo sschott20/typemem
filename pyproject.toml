@@ -1,0 +1,18 @@
+[project]
+name = "typemem"
+version = "0.1.0"
+description = "Abstract memory framework for LLM-controlled robots"
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb>=0.4",
+    "pyyaml>=6.0",
+    "openai>=1.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-timeout>=2.0"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
