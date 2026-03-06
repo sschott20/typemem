@@ -6,4 +6,5 @@ from typemem.baselines import (
     make_full_context, make_monolithic_rag, make_tiered_memory,
     make_rag_with_recency, make_tiered_no_consolidation,
 )
+from typemem.tiered import make_tiered_llm
 from typemem.config import load_config, system_from_config
