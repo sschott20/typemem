@@ -1,4 +1,6 @@
 """Tests for ChromaDBStore implementation."""
+import time
+
 from typemem.types import MemoryEntry
 
 
@@ -108,3 +110,26 @@ def test_get_nonexistent(store):
 def test_search_empty_store(store):
     results = store.search("anything")
     assert results == []
+
+
+def test_timestamp_auto_set(store):
+    """Verify that adding an entry auto-sets a timestamp retrievable via get() and search()."""
+    before = time.time()
+    mid = store.add("timestamped memory")
+    after = time.time()
+
+    # Check via get()
+    entry = store.get(mid)
+    assert entry is not None
+    assert isinstance(entry.timestamp, float)
+    assert before <= entry.timestamp <= after
+    assert entry.metadata["_timestamp"] == entry.timestamp
+
+    # Check via search()
+    results = store.search("timestamped memory", n=1)
+    assert len(results) == 1
+    assert isinstance(results[0].entry.timestamp, float)
+    assert before <= results[0].entry.timestamp <= after
+
+    # Ensure it's recent (within last 5 seconds)
+    assert time.time() - entry.timestamp < 5.0

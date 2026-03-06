@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, TYPE_CHECKING
+import time
 import uuid
 
 if TYPE_CHECKING:
@@ -13,6 +14,7 @@ class MemoryEntry:
     id: str
     text: str
     metadata: dict[str, Any] = field(default_factory=dict)
+    timestamp: float = field(default_factory=time.time)
 
 
 @dataclass

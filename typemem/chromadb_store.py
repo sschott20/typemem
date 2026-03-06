@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import chromadb
 
@@ -22,17 +23,21 @@ class ChromaDBStore(MemoryStore):
 
     def add(self, text: str, metadata: dict | None = None, id: str | None = None) -> str:
         mid = id or make_id()
-        kwargs = {"ids": [mid], "documents": [text]}
-        if metadata:
-            kwargs["metadatas"] = [metadata]
+        meta = dict(metadata) if metadata else {}
+        if "_timestamp" not in meta:
+            meta["_timestamp"] = time.time()
+        kwargs = {"ids": [mid], "documents": [text], "metadatas": [meta]}
         self._collection.add(**kwargs)
         return mid
 
     def add_batch(self, texts: list[str], metadatas: list[dict] | None = None, ids: list[str] | None = None) -> list[str]:
         batch_ids = ids or [make_id() for _ in texts]
-        kwargs: dict = {"ids": batch_ids, "documents": texts}
-        if metadatas:
-            kwargs["metadatas"] = metadatas
+        now = time.time()
+        batch_metas = [dict(m) for m in metadatas] if metadatas else [{} for _ in texts]
+        for meta in batch_metas:
+            if "_timestamp" not in meta:
+                meta["_timestamp"] = now
+        kwargs: dict = {"ids": batch_ids, "documents": texts, "metadatas": batch_metas}
         self._collection.add(**kwargs)
         return batch_ids
 
@@ -47,7 +52,9 @@ class ChromaDBStore(MemoryStore):
             return []
         results = []
         for i, doc_id in enumerate(result["ids"][0]):
-            entry = MemoryEntry(id=doc_id, text=result["documents"][0][i], metadata=result["metadatas"][0][i] or {})
+            meta = result["metadatas"][0][i] or {}
+            ts = meta.get("_timestamp", 0.0)
+            entry = MemoryEntry(id=doc_id, text=result["documents"][0][i], metadata=meta, timestamp=ts)
             results.append(SearchResult(entry=entry, distance=result["distances"][0][i]))
         return results
 
@@ -73,17 +80,21 @@ class ChromaDBStore(MemoryStore):
             return None
         if not result["ids"]:
             return None
-        return MemoryEntry(id=result["ids"][0], text=result["documents"][0], metadata=result["metadatas"][0] or {})
+        meta = result["metadatas"][0] or {}
+        ts = meta.get("_timestamp", 0.0)
+        return MemoryEntry(id=result["ids"][0], text=result["documents"][0], metadata=meta, timestamp=ts)
 
     def get_all(self, filters: dict | None = None) -> list[MemoryEntry]:
         kwargs = {"include": ["documents", "metadatas"]}
         if filters:
             kwargs["where"] = filters
         result = self._collection.get(**kwargs)
-        return [
-            MemoryEntry(id=result["ids"][i], text=result["documents"][i], metadata=result["metadatas"][i] or {})
-            for i in range(len(result["ids"]))
-        ]
+        entries = []
+        for i in range(len(result["ids"])):
+            meta = result["metadatas"][i] or {}
+            ts = meta.get("_timestamp", 0.0)
+            entries.append(MemoryEntry(id=result["ids"][i], text=result["documents"][i], metadata=meta, timestamp=ts))
+        return entries
 
     def count(self, filters: dict | None = None) -> int:
         if filters is None:
