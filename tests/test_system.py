@@ -1,6 +1,16 @@
 """Tests for MemorySystem registration and manual mode."""
+import time
+
 import pytest
 from typemem.system import MemorySystem
+
+
+@pytest.fixture
+def system(store):
+    """Fresh MemorySystem per test, ensuring stop() is called on teardown."""
+    sys = MemorySystem(store)
+    yield sys
+    sys.stop()
 
 
 def test_register_and_observe(store):
@@ -142,3 +152,39 @@ def test_multiple_consolidation_fns(store):
     marker_items = store.get_all(filters={"tier": "marker"})
     assert len(meta_items) == 1
     assert len(marker_items) == 1
+
+
+def test_background_observation(system, store):
+    """Background mode calls observation functions on timer."""
+    call_count = {"n": 0}
+
+    def obs_counter(raw, s):
+        call_count["n"] += 1
+        return [s.add(f"obs {call_count['n']}")]
+
+    system.add_observation("counter", obs_counter, interval=0.2)
+    system.start(data_source=lambda: {"tick": True})
+    time.sleep(1.5)
+    system.stop()
+    assert call_count["n"] >= 2
+
+
+def test_background_consolidation(system, store):
+    """Background mode calls consolidation functions on timer."""
+    store.add("seed data")
+    call_count = {"n": 0}
+
+    def cons_counter(s):
+        call_count["n"] += 1
+        return []
+
+    system.add_consolidation("counter", cons_counter, interval=0.3)
+    system.start(data_source=lambda: {})
+    time.sleep(1.5)
+    system.stop()
+    assert call_count["n"] >= 2
+
+
+def test_start_stop_idempotent(system):
+    """Stopping without starting doesn't crash."""
+    system.stop()  # should not raise
