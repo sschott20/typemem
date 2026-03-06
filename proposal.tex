@@ -1,0 +1,116 @@
+\documentclass[10pt]{article}
+
+\usepackage[margin=0.85in]{geometry}
+\usepackage{times}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{enumitem}
+\usepackage{titlesec}
+
+% Compact spacing
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+\titlespacing*{\section}{0pt}{10pt}{4pt}
+\titlespacing*{\subsection}{0pt}{8pt}{3pt}
+
+\title{\vspace{-0.6in}Do Robots Need Cognitive Memory? An Empirical Study of\\Multi-Tier LLM-Augmented Memory for Robotic Agents\vspace{-0.15in}}
+\author{Alex Schott \and Leo Li}
+\date{\vspace{-0.25in}}
+
+\begin{document}
+\maketitle
+
+\section{Problem and Motivation}
+
+LLM-controlled robotic systems where a language model directly selects actions from sensor input require memory to operate over extended time horizons. Without memory, a robot cannot recall past observations, learn from failed actions, or build a persistent model of its environment. Recent work on LLM agentic memory (MemGPT, Reflexion, Generative Agents) have made significant progress, but these systems are designed for text-native environments where observations arrive as natural language and at human-interactive rates. Robotic systems face fundamentally different constraints:
+
+\textbf{Data volume and modality.} Robots produce continuous, multi-modal sensor data (RGB, LiDAR, joint states) at 10--100\,Hz---far exceeding what any context window can hold, and in formats that require interpretation before an LLM can reason about them.
+
+\textbf{Latency sensitivity.} When the LLM is on the critical path of the control loop, memory retrieval latency directly degrades robot responsiveness. Text-based agents can tolerate seconds of retrieval time; robots operating at ${\sim}1$\,Hz action frequency cannot.
+
+\textbf{Compression requirement.} Raw sensor data must be translated into language, then progressively compressed and abstracted to remain useful over long time horizons.
+
+These constraints suggest that naive approaches such as appending all observations to the context window, or flat vector retrieval over unprocessed data will fail at scale. A more structured approach may be necessary, but this has not been empirically validated.
+
+\section{Related Work}
+
+\textbf{LLM agent memory.} MemGPT \cite{packer2023memgpt} introduces hierarchical memory management for LLM agents with explicit memory tiers. Generative Agents \cite{park2023generative} uses a retrieval-based memory with reflection. Reflexion \cite{shinn2023reflexion} stores verbal feedback for self-improvement. These systems operate on text observations and do not address sensor-to-language translation or real-time latency constraints.
+
+\textbf{Cognitive architectures for robots.} Recent work like SayCan \cite{ahn2022saycan} and TypeFly \cite{chen2023typefly} use LLMs for robot planning but do not incorporate persistent memory systems. STaR \cite{star2025} introduces periodic VLM captioning for robot observation but does not address memory consolidation or retrieval.
+
+\textbf{Our positioning.} We bridge these lines of work by empirically studying whether cognitive-inspired memory decomposition (observation, consolidation, injection) provides measurable benefits for LLM-controlled robots over simpler alternatives.
+
+\section{Approach}
+
+We introduce \textbf{typemem}, a minimal abstract framework for robot memory that decomposes memory management into three function types operating over a generic vector store:
+
+\textbf{Observation functions} run in the background, converting raw sensor data into natural language memories stored in the database.
+%
+\textbf{Consolidation functions} run in the background, reading existing memories and creating summaries, extracting patterns, or pruning redundant entries---often using LLM calls for reasoning-heavy operations.
+%
+\textbf{Injection functions} are called synchronously before each LLM inference, searching memory and selecting the most relevant items to include in the prompt within a token budget.
+
+The memory store interface is deliberately minimal (add, search, delete, update) with no built-in opinion on tiers, retention, or linking. All organizational policy lives in the functions themselves, enabling controlled ablation.
+
+A key feature is \textbf{LLM-assisted function generation}: given a natural language description of a robot's personality and use case, the system generates starter implementations (Python code for deterministic operations, LLM prompts for reasoning tasks) that users can review and refine.
+
+\section{Experimental Plan}
+
+We compare three strategies, all implemented as instances of the same typemem interface:
+
+\begin{itemize}[nosep, leftmargin=1.5em]
+    \item \textbf{Full context.} Observations appended as raw text, no consolidation, inject everything up to the token limit.
+    \item \textbf{Monolithic RAG.} Observations embedded and stored, no consolidation, top-$k$ cosine retrieval at injection.
+    \item \textbf{Tiered memory (ours).} LLM-generated observation, consolidation, and injection functions with structured memory organization.
+\end{itemize}
+
+\subsection{Evaluation}
+
+\textbf{Latency benchmarks.} Measure injection time and consolidation overhead across memory store sizes (100 to 100K entries) for all three strategies.
+
+\textbf{Synthetic benchmarks.} Scripted robot observation streams (e.g., ``patrol a building for 1 hour'') with ground-truth retrieval questions at decision points. Metrics: retrieval precision/recall, token efficiency, task-relevant information coverage.
+
+\textbf{Real robot evaluation (stretch goal).} Deploy all three strategies on a Unitree Go2 quadruped running identical navigation and interaction tasks via the TypeGo platform. Measure task completion rate and decision quality.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{10}
+
+\bibitem{ahn2022saycan}
+M.~Ahn, A.~Brohan, N.~Brown, Y.~Chebotar, O.~Cortes, B.~David, C.~Finn, C.~Fu, K.~Gopalakrishnan, K.~Hausman, et~al.
+Do as {I} can, not as {I} say: Grounding language in robotic affordances.
+In \emph{CoRL}, 2022.
+\url{https://arxiv.org/abs/2204.01691}
+
+\bibitem{packer2023memgpt}
+C.~Packer, S.~Wooders, K.~Lin, V.~Fang, S.~G. Patil, I.~Stoica, and J.~E. Gonzalez.
+{MemGPT}: Towards {LLMs} as operating systems.
+\emph{arXiv preprint arXiv:2310.08560}, 2023.
+\url{https://arxiv.org/abs/2310.08560}
+
+\bibitem{park2023generative}
+J.~S. Park, J.~C. O'Brien, C.~J. Cai, M.~R. Morris, P.~Liang, and M.~S. Bernstein.
+Generative agents: Interactive simulacra of human behavior.
+In \emph{UIST}, 2023.
+\url{https://arxiv.org/abs/2304.03442}
+
+\bibitem{shinn2023reflexion}
+N.~Shinn, F.~Cassano, A.~Gopinath, K.~Narasimhan, and S.~Yao.
+Reflexion: Language agents with verbal reinforcement learning.
+In \emph{NeurIPS}, 2023.
+\url{https://arxiv.org/abs/2303.11366}
+
+\bibitem{chen2023typefly}
+G.~Chen, X.~Yu, and L.~Zhong.
+{TypeFly}: Flying drones with large language model.
+\emph{arXiv preprint arXiv:2312.14950}, 2023.
+\url{https://arxiv.org/abs/2312.14950}
+
+\bibitem{star2025}
+M.~Yuan, H.~Zhang, M.~Mohammadi, R.~Li, J.~Shan, and S.~L. Waslander.
+{STaR}: Scalable task-conditioned retrieval for long-horizon multimodal robot memory.
+\emph{arXiv preprint arXiv:2602.09255}, 2026.
+\url{https://arxiv.org/abs/2602.09255}
+
+\end{thebibliography}
+
+\end{document}

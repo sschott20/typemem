@@ -1,0 +1,63 @@
+Do Robots Need Cognitive Memory? An Empirical Study of Multi-Tier LLM-Augmented Memory for Robotic Agents
+
+Alex Schott, Leo Li
+
+
+Problem and Motivation
+
+LLM-controlled robots -- systems where a language model directly selects actions from sensor input -- require memory to operate over extended time horizons. Without memory, a robot cannot recall past observations, learn from failed actions, or build a persistent model of its environment.
+
+Recent work on LLM agent memory (MemGPT, Reflexion, Generative Agents) has made significant progress, but these systems are designed for text-native environments where observations arrive as natural language at human-interactive rates. Robotic systems face fundamentally different constraints:
+
+Data volume and modality: Robots produce continuous, multi-modal sensor data (RGB, LiDAR, joint states) at 10-100Hz -- far exceeding what any context window can hold, and in formats that require interpretation before an LLM can reason about them.
+
+Latency sensitivity: When the LLM is on the critical path of the control loop, memory retrieval latency directly degrades robot responsiveness. Text-based agents can tolerate seconds of retrieval time; robots operating at ~1Hz action frequency cannot.
+
+Compression requirement: Raw sensor data must be translated into language, then progressively compressed and abstracted to remain useful over long time horizons.
+
+These constraints suggest that naive approaches -- appending all observations to the context window, or flat vector retrieval over unprocessed data -- will fail at scale. A more structured approach may be necessary, but this has not been empirically validated.
+
+
+Related Work
+
+LLM agent memory: MemGPT (Packer et al., 2023) introduces hierarchical memory management for LLM agents with explicit memory tiers. Generative Agents (Park et al., 2023) uses a retrieval-based memory with reflection. Reflexion (Shinn et al., 2023) stores verbal feedback for self-improvement. These systems operate on text observations and do not address sensor-to-language translation or real-time latency constraints.
+
+Cognitive architectures for robots: SOAR (Laird, 2012) and ACT-R (Anderson, 2007) have long modeled multi-store memory for cognitive agents. Recent work like SayCan (Ahn et al., 2022) and Inner Monologue (Huang et al., 2022) uses LLMs for robot planning but does not incorporate persistent memory systems. STaR (2025) introduces periodic VLM captioning for robot observation but does not address memory consolidation or retrieval.
+
+Our positioning: We bridge these lines of work by empirically studying whether cognitive-inspired memory decomposition (observation, consolidation, injection) provides measurable benefits for LLM-controlled robots over simpler alternatives.
+
+
+Approach
+
+We introduce typemem, a minimal abstract framework for robot memory that decomposes memory management into three function types operating over a generic vector store:
+
+Observation functions run in the background, converting raw sensor data into natural language memories stored in the database.
+
+Consolidation functions run in the background, reading existing memories and creating summaries, extracting patterns, or pruning redundant entries -- often using LLM calls for reasoning-heavy operations.
+
+Injection functions are called synchronously before each LLM inference, searching memory and selecting the most relevant items to include in the prompt within a token budget.
+
+The memory store interface is deliberately minimal (add, search, delete, update) with no built-in opinion on tiers, retention, or linking. All organizational policy lives in the functions themselves, enabling controlled ablation.
+
+A key feature is LLM-assisted function generation: given a natural language description of a robot's personality and use case, the system generates starter implementations (Python code for deterministic operations, LLM prompts for reasoning tasks) that users can review and refine.
+
+This framework is abstracted from the memory system of TypeGo, an LLM-controlled robotics platform that uses a 4-tier ChromaDB-backed memory hierarchy with plugin-based observation/consolidation and token-budgeted injection.
+
+
+Experimental Plan
+
+We compare three strategies, all implemented as instances of the same typemem interface:
+
+Full context: Observations appended as raw text, no consolidation, inject everything up to the token limit.
+
+Monolithic RAG: Observations embedded and stored, no consolidation, top-k cosine retrieval at injection.
+
+Tiered memory (ours): LLM-generated observation, consolidation, and injection functions with structured memory organization.
+
+Evaluation:
+
+Latency benchmarks: Measure injection time and consolidation overhead across memory store sizes (100 to 100K entries) for all three strategies.
+
+Synthetic benchmarks: Scripted robot observation streams (e.g., "patrol a building for 1 hour") with ground-truth retrieval questions at decision points. Metrics: retrieval precision/recall, token efficiency, task-relevant information coverage.
+
+Real robot evaluation (stretch goal): Deploy all three strategies on a Unitree Go2 quadruped running identical navigation and interaction tasks via the TypeGo platform. Measure task completion rate and decision quality.
