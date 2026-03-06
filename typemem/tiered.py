@@ -35,7 +35,7 @@ def _llm_call(prompt: str, model: str = "gpt-4o-mini") -> str:
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
     )
-    return response.choices[0].message.content
+    return response.choices[0].message.content or ""
 
 
 # ---------------------------------------------------------------------------

@@ -146,7 +146,7 @@ def run_compare(scenario_path: Path):
         with tempfile.TemporaryDirectory() as tmpdir:
             store = ChromaDBStore(persist_dir=tmpdir)
             system = factory(store)
-            query_results = _run_strategy(timeline, system, store, injection_name)
+            query_results = _run_strategy(timeline, system, injection_name)
             total = store.count()
 
             avg_prec = (
@@ -196,7 +196,7 @@ def run_compare(scenario_path: Path):
             )
 
 
-def _run_strategy(timeline, system, store, injection_name):
+def _run_strategy(timeline, system, injection_name):
     """Run a strategy through the timeline, return per-query results."""
     query_results = []
     events_fed = 0
