@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import yaml
-from typing import Any
 
 _OPENAI_CLIENT = None
 
@@ -80,15 +79,20 @@ _SIGNATURES = {
 }
 
 
+def _strip_fences(text: str) -> str:
+    """Remove markdown code fences from LLM responses."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = "\n".join(text.split("\n")[1:])
+    if text.endswith("```"):
+        text = "\n".join(text.split("\n")[:-1])
+    return text
+
+
 def generate_config(personality: str, model: str = "gpt-4o") -> dict:
     """Generate a typemem YAML config from a personality description."""
     prompt = _CONFIG_PROMPT.format(personality=personality)
-    response = _llm_call(prompt, model=model)
-    response = response.strip()
-    if response.startswith("```"):
-        response = "\n".join(response.split("\n")[1:])
-    if response.endswith("```"):
-        response = "\n".join(response.split("\n")[:-1])
+    response = _strip_fences(_llm_call(prompt, model=model))
     config = yaml.safe_load(response)
     config["personality"] = personality
     return config
@@ -104,11 +108,7 @@ def generate_functions(fn_type: str, fn_def: dict, personality: str, model: str 
         signature=_SIGNATURES[fn_type],
     )
     response = _llm_call(prompt, model=model)
-    code = response.strip()
-    if code.startswith("```"):
-        code = "\n".join(code.split("\n")[1:])
-    if code.endswith("```"):
-        code = "\n".join(code.split("\n")[:-1])
+    code = _strip_fences(response)
     result = dict(fn_def)
     result["code"] = code
     return result

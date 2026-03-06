@@ -5,10 +5,10 @@ import threading
 import time
 from typing import Callable
 
-logger = logging.getLogger(__name__)
-
 from typemem.store import MemoryStore
 from typemem.types import ObservationFn, ConsolidationFn, InjectionFn
+
+logger = logging.getLogger(__name__)
 
 
 class MemorySystem:
@@ -82,10 +82,17 @@ class MemorySystem:
         last_run: dict[str, float] = {}
         while self._running:
             now = time.time()
-            for name, (fn, interval) in self._observations.items():
-                if now - last_run.get(name, 0) >= interval:
+            due = [(name, fn) for name, (fn, interval) in self._observations.items()
+                   if now - last_run.get(name, 0) >= interval]
+            if due:
+                try:
+                    raw_data = data_source()
+                except Exception:
+                    logger.warning("data_source() failed", exc_info=True)
+                    time.sleep(0.1)
+                    continue
+                for name, fn in due:
                     try:
-                        raw_data = data_source()
                         fn(raw_data, self.store)
                     except Exception:
                         logger.warning("Observation '%s' failed", name, exc_info=True)

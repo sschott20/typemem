@@ -12,6 +12,15 @@ class MemoryStore(ABC):
         """Store a memory. Returns its ID (generated if not provided)."""
         ...
 
+    def add_batch(self, texts: list[str], metadatas: list[dict] | None = None, ids: list[str] | None = None) -> list[str]:
+        """Store multiple memories in one call. Default falls back to add() loop."""
+        result_ids = []
+        for i, text in enumerate(texts):
+            md = metadatas[i] if metadatas else None
+            mid = ids[i] if ids else None
+            result_ids.append(self.add(text, metadata=md, id=mid))
+        return result_ids
+
     @abstractmethod
     def search(self, query: str, n: int = 10, filters: dict | None = None) -> list[SearchResult]:
         """Semantic search. Returns results sorted by relevance (lowest distance first)."""

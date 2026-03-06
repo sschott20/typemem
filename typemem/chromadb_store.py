@@ -5,9 +5,9 @@ import logging
 import chromadb
 
 from typemem.store import MemoryStore
+from typemem.types import MemoryEntry, SearchResult, make_id
 
 logger = logging.getLogger(__name__)
-from typemem.types import MemoryEntry, SearchResult, make_id
 
 
 class ChromaDBStore(MemoryStore):
@@ -28,12 +28,16 @@ class ChromaDBStore(MemoryStore):
         self._collection.add(**kwargs)
         return mid
 
+    def add_batch(self, texts: list[str], metadatas: list[dict] | None = None, ids: list[str] | None = None) -> list[str]:
+        batch_ids = ids or [make_id() for _ in texts]
+        kwargs: dict = {"ids": batch_ids, "documents": texts}
+        if metadatas:
+            kwargs["metadatas"] = metadatas
+        self._collection.add(**kwargs)
+        return batch_ids
+
     def search(self, query: str, n: int = 10, filters: dict | None = None) -> list[SearchResult]:
-        count = self._collection.count()
-        if count == 0:
-            return []
-        actual_n = min(n, count)
-        kwargs = {"query_texts": [query], "n_results": actual_n, "include": ["documents", "metadatas", "distances"]}
+        kwargs = {"query_texts": [query], "n_results": n, "include": ["documents", "metadatas", "distances"]}
         if filters:
             kwargs["where"] = filters
         try:

@@ -11,6 +11,17 @@ from typemem.chromadb_store import ChromaDBStore
 from typemem.system import MemorySystem
 
 
+def _percentile(values: list[float], p: float) -> float:
+    """Compute the p-th percentile (0-1) of a list of values."""
+    if not values:
+        return 0.0
+    if p <= 0.5:
+        return statistics.median(values)
+    sorted_vals = sorted(values)
+    idx = min(int(len(sorted_vals) * p), len(sorted_vals) - 1)
+    return sorted_vals[idx]
+
+
 @dataclass
 class LatencyResult:
     """Latency measurements for a strategy at a given store size."""
@@ -21,33 +32,19 @@ class LatencyResult:
 
     @property
     def obs_p50(self) -> float:
-        if not self.observation_latencies_ms:
-            return 0.0
-        return statistics.median(self.observation_latencies_ms)
+        return _percentile(self.observation_latencies_ms, 0.5)
 
     @property
     def obs_p99(self) -> float:
-        if not self.observation_latencies_ms:
-            return 0.0
-        sorted_vals = sorted(self.observation_latencies_ms)
-        idx = int(len(sorted_vals) * 0.99)
-        idx = min(idx, len(sorted_vals) - 1)
-        return sorted_vals[idx]
+        return _percentile(self.observation_latencies_ms, 0.99)
 
     @property
     def inj_p50(self) -> float:
-        if not self.injection_latencies_ms:
-            return 0.0
-        return statistics.median(self.injection_latencies_ms)
+        return _percentile(self.injection_latencies_ms, 0.5)
 
     @property
     def inj_p99(self) -> float:
-        if not self.injection_latencies_ms:
-            return 0.0
-        sorted_vals = sorted(self.injection_latencies_ms)
-        idx = int(len(sorted_vals) * 0.99)
-        idx = min(idx, len(sorted_vals) - 1)
-        return sorted_vals[idx]
+        return _percentile(self.injection_latencies_ms, 0.99)
 
 
 _SAMPLE_OBSERVATIONS = [
@@ -87,11 +84,15 @@ _SAMPLE_QUERIES = [
 ]
 
 
-def _seed_store(store: ChromaDBStore, n: int) -> None:
-    """Add n diverse memories to the store via the public API."""
-    for i in range(n):
-        doc = f"[t={i}] {_SAMPLE_OBSERVATIONS[i % len(_SAMPLE_OBSERVATIONS)]} (observation #{i})"
-        store.add(doc)
+def _seed_store(store: ChromaDBStore, start: int, end: int, batch_size: int = 200) -> None:
+    """Add memories [start, end) to the store using batch inserts."""
+    for b in range(start, end, batch_size):
+        b_end = min(b + batch_size, end)
+        docs = [
+            f"[t={i}] {_SAMPLE_OBSERVATIONS[i % len(_SAMPLE_OBSERVATIONS)]} (observation #{i})"
+            for i in range(b, b_end)
+        ]
+        store.add_batch(docs)
 
 
 def run_latency_benchmark(
@@ -110,13 +111,15 @@ def run_latency_benchmark(
     all_results: list[LatencyResult] = []
 
     for strategy_name, factory, injection_name in strategies:
-        for size in sizes:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                store = ChromaDBStore(persist_dir=tmpdir)
-                system = factory(store)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = ChromaDBStore(persist_dir=tmpdir)
+            system = factory(store)
+            prev_size = 0
 
-                # Seed the store
-                _seed_store(store, size)
+            for size in sorted(sizes):
+                # Grow incrementally instead of re-seeding from scratch
+                _seed_store(store, prev_size, size)
+                prev_size = size
 
                 result = LatencyResult(
                     strategy_name=strategy_name,
