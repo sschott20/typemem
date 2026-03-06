@@ -3,3 +3,4 @@ from typemem.store import MemoryStore
 from typemem.chromadb_store import ChromaDBStore
 from typemem.system import MemorySystem
 from typemem.baselines import make_full_context, make_monolithic_rag
+from typemem.config import load_config, system_from_config
