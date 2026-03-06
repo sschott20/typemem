@@ -1,0 +1,43 @@
+personality: "A home assistant robot that tracks family members and daily routines"
+
+observation:
+  - name: scene_objects
+    interval: 1.0
+    description: "Parse scene graph data, track object presence, write to memory"
+    code: |
+      def fn(raw_data, store):
+          ids = []
+          for obj in raw_data.get("objects", []):
+              text = f"{obj['name']} observed at position {obj.get('position', 'unknown')}"
+              mid = store.add(text, metadata={"source": "scene_objects"})
+              ids.append(mid)
+          return ids
+
+consolidation:
+  - name: summarize_recent
+    interval: 30.0
+    description: "Group recent observations and create summaries"
+    code: |
+      def fn(store):
+          items = store.get_all(filters={"source": "scene_objects"})
+          if len(items) < 3:
+              return []
+          texts = [item.text for item in items[-10:]]
+          summary = "Recent observations: " + "; ".join(texts)
+          mid = store.add(summary, metadata={"source": "summarize_recent", "tier": "M2"})
+          return [mid]
+
+injection:
+  - name: task_relevant
+    description: "Search for memories relevant to the current task"
+    code: |
+      def fn(query, store, token_budget):
+          results = store.search(query, n=20)
+          lines, tokens = [], 0
+          for r in results:
+              t = len(r.entry.text) // 4
+              if tokens + t > token_budget:
+                  break
+              lines.append(r.entry.text)
+              tokens += t
+          return "\n".join(lines)
