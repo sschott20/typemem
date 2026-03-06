@@ -36,9 +36,9 @@ These constraints suggest that naive approaches such as appending all observatio
 
 \textbf{LLM agent memory.} MemGPT \cite{packer2023memgpt} introduces hierarchical memory management for LLM agents with explicit memory tiers. Generative Agents \cite{park2023generative} uses a retrieval-based memory with reflection. Reflexion \cite{shinn2023reflexion} stores verbal feedback for self-improvement. These systems operate on text observations and do not address sensor-to-language translation or real-time latency constraints.
 
-\textbf{Cognitive architectures for robots.} Recent work like SayCan \cite{ahn2022saycan} and TypeFly \cite{chen2023typefly} use LLMs for robot planning but do not incorporate persistent memory systems. STaR \cite{star2025} introduces periodic VLM captioning for robot observation but does not address memory consolidation or retrieval.
+\textbf{Memory for LLM-controlled robots.} Recent work has begun integrating memory into LLM-controlled robots. Embodied-RAG \cite{xie2024embodiedrag} structures robot memory as a semantic forest with fixed abstraction levels for navigation and language generation across kilometer-scale environments. PragmaBot \cite{pragmabot2025} uses dual short-term and long-term memory with RAG for cross-task transfer. SayCan \cite{ahn2022saycan} and TypeFly \cite{chen2023typefly} use LLMs for robot planning but do not incorporate persistent memory. STaR \cite{star2025} introduces periodic VLM captioning for robot observation but does not address memory consolidation or retrieval. Critically, all of these systems use write-once memory---observations are stored and retrieved but never consolidated, summarized, or pruned. As the memory store grows, retrieval quality degrades and token budgets are consumed by redundant or stale information. Furthermore, each system hardcodes a specific memory architecture, making controlled comparison across strategies impossible within a single framework.
 
-\textbf{Our positioning.} We bridge these lines of work by empirically studying whether cognitive-inspired memory decomposition (observation, consolidation, injection) provides measurable benefits for LLM-controlled robots over simpler alternatives.
+\textbf{Our positioning.} typemem decouples memory \emph{policy} (how to observe, consolidate, and inject) from memory \emph{storage}, enabling prior approaches to be expressed as configurations of the same interface---Embodied-RAG as hierarchical observation with tree-structured injection, PragmaBot as reflective observation with dual-tier injection---and then compared against strategies that include active consolidation. Our empirical study directly tests whether consolidation provides measurable benefits as memory scales, a question none of these systems have addressed.
 
 \section{Approach}
 
@@ -104,6 +104,17 @@ G.~Chen, X.~Yu, and L.~Zhong.
 {TypeFly}: Flying drones with large language model.
 \emph{arXiv preprint arXiv:2312.14950}, 2023.
 \url{https://arxiv.org/abs/2312.14950}
+
+\bibitem{xie2024embodiedrag}
+Q.~Xie, S.~Y. Min, P.~Ji, Y.~Yang, T.~Zhang, K.~Xu, A.~Bajaj, R.~Salakhutdinov, M.~Johnson-Roberson, and Y.~Bisk.
+{Embodied-RAG}: General non-parametric embodied memory for retrieval and generation.
+\emph{arXiv preprint arXiv:2409.18313}, 2024.
+\url{https://arxiv.org/abs/2409.18313}
+
+\bibitem{pragmabot2025}
+PragmaBot: A pragmatist robot---learning to plan tasks by experiencing the real world.
+\emph{arXiv preprint arXiv:2507.16713}, 2025.
+\url{https://arxiv.org/abs/2507.16713}
 
 \bibitem{star2025}
 M.~Yuan, H.~Zhang, M.~Mohammadi, R.~Li, J.~Shan, and S.~L. Waslander.
