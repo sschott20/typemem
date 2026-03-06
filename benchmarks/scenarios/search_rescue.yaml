@@ -1,0 +1,77 @@
+name: "Search and rescue building sweep"
+description: "Robot sweeps a partially collapsed 3-story building after an earthquake. Most observations are structural noise (debris, empty rooms), with sparse critical events like survivors and hazards. Tests ability to surface important information from noisy observations."
+duration_minutes: 30
+
+events:
+  - time: 0
+    data: {text: "Entered building through main entrance on floor 1. Structural damage visible on ceiling.", objects: []}
+  - time: 30
+    data: {text: "Floor 1 corridor A: debris on floor, cracked walls, no signs of people", objects: [{name: "debris", position: [2.0, 1.0, 0.0]}]}
+  - time: 60
+    data: {text: "Floor 1 room 101: empty office, overturned furniture, ceiling tiles fallen. No occupants.", objects: []}
+  - time: 90
+    data: {text: "Floor 1 room 102: empty storage closet, shelves collapsed", objects: []}
+  - time: 120
+    data: {text: "Floor 1 room 103: gas leak detected, strong smell of natural gas near ruptured pipe", objects: [{name: "gas_leak", position: [5.0, 3.0, 0.5]}]}
+  - time: 180
+    data: {text: "Floor 1 room 104: empty break room, vending machine toppled, no people", objects: []}
+  - time: 210
+    data: {text: "Floor 1 corridor B: large crack in floor near stairwell, structurally compromised", objects: [{name: "floor_crack", position: [6.0, 0.0, 0.0]}]}
+  - time: 240
+    data: {text: "Floor 1 room 105: empty conference room, windows shattered, glass on floor", objects: []}
+  - time: 300
+    data: {text: "Moving to floor 2 via east stairwell. Stairwell intact but dusty.", objects: []}
+  - time: 360
+    data: {text: "Floor 2 corridor: water leaking from broken pipe in ceiling, floor is wet", objects: [{name: "water_leak", position: [4.0, 5.0, 2.5]}]}
+  - time: 420
+    data: {text: "Floor 2 room 201: empty cubicle area, monitors fallen off desks, no one present", objects: []}
+  - time: 480
+    data: {text: "Floor 2 room 202: survivor detected, adult female conscious and responsive, trapped under desk with leg injury", objects: [{name: "survivor_1", position: [7.0, 6.0, 2.0]}]}
+  - time: 540
+    data: {text: "Floor 2 room 203: empty office, mild smoke visible near electrical panel, possible electrical fire risk", objects: [{name: "electrical_hazard", position: [8.0, 7.0, 2.5]}]}
+  - time: 600
+    data: {text: "Floor 2 room 204: empty server room, racks toppled, no fire detected", objects: []}
+  - time: 660
+    data: {text: "Floor 2 room 205: debris blocking doorway, unable to fully enter. Heard faint tapping from inside.", objects: [{name: "possible_survivor", position: [10.0, 6.0, 2.0]}]}
+  - time: 720
+    data: {text: "Floor 2 corridor end: ceiling partially collapsed, route to west wing blocked", objects: [{name: "collapse", position: [11.0, 5.0, 2.5]}]}
+  - time: 780
+    data: {text: "Moving to floor 3 via east stairwell. Stairwell has cracks but passable.", objects: []}
+  - time: 840
+    data: {text: "Floor 3 corridor: heavy structural damage, walls buckled, proceed with caution", objects: []}
+  - time: 900
+    data: {text: "Floor 3 room 301: empty office, desk crushed by fallen beam, no occupants", objects: []}
+  - time: 960
+    data: {text: "Floor 3 room 302: survivor detected, adult male unconscious, lying on floor near window, bleeding from head wound", objects: [{name: "survivor_2", position: [7.0, 8.0, 3.0]}]}
+  - time: 1020
+    data: {text: "Floor 3 room 303: empty bathroom, tiles cracked, plumbing exposed, no hazards", objects: []}
+  - time: 1080
+    data: {text: "Floor 3 room 304: chemical storage room, several containers cracked and leaking unknown liquid, strong fumes", objects: [{name: "chemical_spill", position: [9.0, 9.0, 3.0]}]}
+  - time: 1200
+    data: {text: "Floor 3 room 305: empty corner office, large window broken, wind and rain entering", objects: []}
+  - time: 1320
+    data: {text: "Floor 3 room 306: empty meeting room, projector fallen, chairs scattered, no people", objects: []}
+  - time: 1500
+    data: {text: "Returning to floor 2 to recheck room 205. Cleared debris from doorway. Survivor detected inside: adult male, conscious, arm pinned under filing cabinet", objects: [{name: "survivor_3", position: [10.0, 6.0, 2.0]}]}
+  - time: 1620
+    data: {text: "Floor 2 recheck: water leak in corridor worsening, standing water now 2 inches deep", objects: [{name: "water_leak", position: [4.0, 5.0, 2.0]}]}
+  - time: 1800
+    data: {text: "Building sweep complete. Exiting via main entrance.", objects: []}
+
+queries:
+  - time: 1000
+    query: "Where are the survivors?"
+    ground_truth: ["room 202", "floor 2", "female", "leg injury", "room 205", "tapping"]
+    token_budget: 600
+  - time: 1500
+    query: "What hazards have been identified?"
+    ground_truth: ["gas leak", "room 103", "electrical", "room 203", "chemical", "room 304"]
+    token_budget: 600
+  - time: 1800
+    query: "How many survivors were found and what are their conditions?"
+    ground_truth: ["room 202", "female", "leg injury", "room 302", "male", "unconscious", "head wound", "room 205", "arm pinned"]
+    token_budget: 800
+  - time: 1800
+    query: "Which floors are structurally unsafe?"
+    ground_truth: ["floor 1", "crack", "stairwell", "floor 2", "ceiling", "collapsed", "floor 3", "structural damage"]
+    token_budget: 600

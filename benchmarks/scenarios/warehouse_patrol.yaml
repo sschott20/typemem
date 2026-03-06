@@ -1,0 +1,77 @@
+name: "Warehouse patrol for 2 hours"
+description: "Robot patrols a warehouse with zones A-D, observing inventory and equipment repeatedly over a long shift. Many items recur in different locations, testing consolidation of repetitive observations."
+duration_minutes: 120
+
+events:
+  - time: 0
+    data: {text: "Forklift parked in zone A near loading dock", objects: [{name: "forklift", position: [2.0, 1.0, 0.0]}]}
+  - time: 120
+    data: {text: "Wooden pallets stacked in zone A, 12 pallets total", objects: [{name: "pallets", position: [3.0, 1.0, 0.0]}]}
+  - time: 300
+    data: {text: "Cardboard boxes labeled 'electronics' in zone B on shelf row 3", objects: [{name: "boxes_electronics", position: [8.0, 4.0, 1.5]}]}
+  - time: 450
+    data: {text: "Forklift has moved to zone B, operator loading boxes", objects: [{name: "forklift", position: [8.0, 3.0, 0.0]}]}
+  - time: 600
+    data: {text: "Spill detected on floor in zone C near aisle 5", objects: [{name: "spill", position: [12.0, 7.0, 0.0]}]}
+  - time: 750
+    data: {text: "Wooden pallets in zone A, 10 pallets remaining", objects: [{name: "pallets", position: [3.0, 1.0, 0.0]}]}
+  - time: 900
+    data: {text: "Forklift returned to zone A with empty forks", objects: [{name: "forklift", position: [2.0, 1.5, 0.0]}]}
+  - time: 1200
+    data: {text: "Metal drums stored in zone D along back wall", objects: [{name: "drums", position: [18.0, 10.0, 0.0]}]}
+  - time: 1500
+    data: {text: "Forklift moved to zone C carrying metal drums", objects: [{name: "forklift", position: [12.0, 6.0, 0.0]}]}
+  - time: 1800
+    data: {text: "Cardboard boxes labeled 'electronics' in zone B, shelf row 3 partially empty", objects: [{name: "boxes_electronics", position: [8.0, 4.0, 1.5]}]}
+  - time: 2100
+    data: {text: "Wooden pallets in zone A, 10 pallets still present", objects: [{name: "pallets", position: [3.0, 1.0, 0.0]}]}
+  - time: 2400
+    data: {text: "Forklift parked in zone A near loading dock again", objects: [{name: "forklift", position: [2.0, 1.0, 0.0]}]}
+  - time: 2700
+    data: {text: "New shipment of cardboard boxes labeled 'furniture' arrived in zone A at loading dock", objects: [{name: "boxes_furniture", position: [1.0, 1.0, 0.0]}]}
+  - time: 3000
+    data: {text: "Spill in zone C has been cleaned up, floor is dry", objects: []}
+  - time: 3600
+    data: {text: "Forklift moved to zone D carrying furniture boxes", objects: [{name: "forklift", position: [18.0, 9.0, 0.0]}]}
+  - time: 4200
+    data: {text: "Wooden pallets in zone A, 8 pallets remaining", objects: [{name: "pallets", position: [3.0, 1.0, 0.0]}]}
+  - time: 4500
+    data: {text: "Forklift returned to zone A from zone D", objects: [{name: "forklift", position: [2.0, 1.0, 0.0]}]}
+  - time: 4800
+    data: {text: "Cardboard boxes labeled 'electronics' in zone B shelf row 3, only 2 boxes left", objects: [{name: "boxes_electronics", position: [8.0, 4.0, 1.5]}]}
+  - time: 5400
+    data: {text: "Metal drums in zone D, count reduced from 6 to 3", objects: [{name: "drums", position: [18.0, 10.0, 0.0]}]}
+  - time: 5700
+    data: {text: "Forklift moved to zone B to restock shelves", objects: [{name: "forklift", position: [8.0, 5.0, 0.0]}]}
+  - time: 6000
+    data: {text: "Wooden pallets in zone A, 8 pallets present", objects: [{name: "pallets", position: [3.0, 1.0, 0.0]}]}
+  - time: 6300
+    data: {text: "Forklift returned to zone A, parked at loading dock", objects: [{name: "forklift", position: [2.0, 1.0, 0.0]}]}
+  - time: 6600
+    data: {text: "Cardboard boxes labeled 'furniture' now stored in zone D on shelf row 1", objects: [{name: "boxes_furniture", position: [18.0, 8.0, 1.0]}]}
+  - time: 7000
+    data: {text: "Wooden pallets in zone A, 8 pallets still stacked at loading area", objects: [{name: "pallets", position: [3.0, 1.0, 0.0]}]}
+  - time: 7200
+    data: {text: "End of shift. Forklift parked in zone A. All zones inspected.", objects: [{name: "forklift", position: [2.0, 1.0, 0.0]}]}
+
+queries:
+  - time: 2500
+    query: "How many times has the forklift moved?"
+    ground_truth: ["zone A", "zone B", "zone C"]
+    token_budget: 600
+  - time: 4300
+    query: "What items are consistently stored in zone A?"
+    ground_truth: ["pallets", "forklift", "loading dock"]
+    token_budget: 600
+  - time: 5500
+    query: "What happened with the spill in zone C?"
+    ground_truth: ["spill", "zone C", "cleaned"]
+    token_budget: 400
+  - time: 6800
+    query: "What is the current inventory status of electronics boxes in zone B?"
+    ground_truth: ["electronics", "zone B", "2 boxes"]
+    token_budget: 600
+  - time: 7200
+    query: "Summarize all forklift activity during the patrol."
+    ground_truth: ["zone A", "zone B", "zone C", "zone D", "forklift"]
+    token_budget: 800

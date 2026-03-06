@@ -1,0 +1,67 @@
+name: "Home assistant daily routine"
+description: "Home robot observes two residents (Alice and Bob) through a 12-hour day across multiple rooms. Tests routine detection and pattern synthesis from scattered observations."
+duration_minutes: 720
+
+events:
+  - time: 0
+    data: {text: "Alice woke up and entered the kitchen at 7:00 AM", objects: [{name: "alice", position: [4.0, 2.0, 1.0]}]}
+  - time: 300
+    data: {text: "Alice started the coffee maker in the kitchen", objects: [{name: "coffee_maker", position: [4.5, 1.0, 0.8]}]}
+  - time: 600
+    data: {text: "Alice sat at the kitchen table eating toast and drinking coffee", objects: [{name: "alice", position: [5.0, 3.0, 0.8]}]}
+  - time: 1200
+    data: {text: "Alice moved to the living room and began reading on the couch", objects: [{name: "alice", position: [10.0, 5.0, 0.8]}]}
+  - time: 1800
+    data: {text: "Bob woke up and entered the bathroom at 7:30 AM", objects: [{name: "bob", position: [2.0, 8.0, 1.0]}]}
+  - time: 2400
+    data: {text: "Bob came to the kitchen, poured coffee, grabbed his keys from the counter", objects: [{name: "bob", position: [4.0, 2.0, 1.0]}, {name: "keys", position: [4.5, 1.5, 0.8]}]}
+  - time: 3000
+    data: {text: "Bob left his keys on the hallway table near the front door", objects: [{name: "keys", position: [0.5, 0.5, 0.7]}]}
+  - time: 3600
+    data: {text: "Bob went to the home office to work at his desk", objects: [{name: "bob", position: [14.0, 8.0, 0.8]}]}
+  - time: 7200
+    data: {text: "Alice moved to the home office, working at the second desk", objects: [{name: "alice", position: [14.0, 6.0, 0.8]}]}
+  - time: 10800
+    data: {text: "Bob left the office and went to the kitchen for lunch", objects: [{name: "bob", position: [4.0, 3.0, 1.0]}]}
+  - time: 11400
+    data: {text: "Alice joined Bob in the kitchen for lunch", objects: [{name: "alice", position: [5.0, 3.0, 0.8]}]}
+  - time: 14400
+    data: {text: "Bob returned to the home office after lunch", objects: [{name: "bob", position: [14.0, 8.0, 0.8]}]}
+  - time: 14400
+    data: {text: "Alice went to the living room to do yoga", objects: [{name: "alice", position: [10.0, 4.0, 0.0]}]}
+  - time: 18000
+    data: {text: "Bob left his keys on the hallway table again after checking the mail", objects: [{name: "keys", position: [0.5, 0.5, 0.7]}]}
+  - time: 21600
+    data: {text: "Alice started cooking dinner in the kitchen", objects: [{name: "alice", position: [4.0, 1.5, 1.0]}]}
+  - time: 25200
+    data: {text: "Bob came to the kitchen, grabbed his keys from the hallway table on the way", objects: [{name: "bob", position: [4.0, 2.0, 1.0]}, {name: "keys", position: [4.0, 2.0, 0.8]}]}
+  - time: 28800
+    data: {text: "Alice and Bob eating dinner together at the kitchen table", objects: [{name: "alice", position: [5.0, 3.0, 0.8]}, {name: "bob", position: [5.0, 3.5, 0.8]}]}
+  - time: 32400
+    data: {text: "Bob left keys on the hallway table and went to living room to watch TV", objects: [{name: "keys", position: [0.5, 0.5, 0.7]}, {name: "bob", position: [10.0, 5.0, 0.8]}]}
+  - time: 36000
+    data: {text: "Alice reading on the couch in the living room next to Bob", objects: [{name: "alice", position: [10.0, 5.5, 0.8]}]}
+  - time: 39600
+    data: {text: "Alice went to the bedroom for the night", objects: [{name: "alice", position: [2.0, 10.0, 0.5]}]}
+  - time: 41400
+    data: {text: "Bob turned off the TV and went to the bedroom", objects: [{name: "bob", position: [2.0, 10.5, 0.5]}]}
+  - time: 43200
+    data: {text: "House is quiet, all lights off, end of day", objects: []}
+
+queries:
+  - time: 7200
+    query: "What is Alice's morning routine?"
+    ground_truth: ["woke up", "kitchen", "coffee", "toast", "living room", "reading"]
+    token_budget: 600
+  - time: 36000
+    query: "Where does Bob usually leave his keys?"
+    ground_truth: ["hallway table", "front door"]
+    token_budget: 600
+  - time: 30000
+    query: "Where is Alice right now?"
+    ground_truth: ["kitchen", "dinner", "cooking"]
+    token_budget: 400
+  - time: 43200
+    query: "What rooms did Bob visit today and what did he do in each?"
+    ground_truth: ["bathroom", "kitchen", "office", "hallway", "living room", "bedroom"]
+    token_budget: 800
