@@ -9,9 +9,20 @@ from typing import Any
 
 import yaml
 
-from typemem.baselines import make_full_context, make_monolithic_rag
+from typemem.baselines import (
+    make_full_context, make_monolithic_rag, make_tiered_memory,
+    make_rag_with_recency, make_tiered_no_consolidation,
+)
 from typemem.chromadb_store import ChromaDBStore
 from typemem.system import MemorySystem
+
+ALL_STRATEGIES = [
+    ("full_context", make_full_context, "dump"),
+    ("monolithic_rag", make_monolithic_rag, "topk"),
+    ("tiered_memory", make_tiered_memory, "tiered"),
+    ("rag_with_recency", make_rag_with_recency, "recency"),
+    ("tiered_no_consol", make_tiered_no_consolidation, "tiered"),
+]
 
 
 @dataclass
@@ -173,26 +184,75 @@ def print_results(results: list[BenchmarkResult]) -> None:
             )
 
 
+def results_to_json(results: list[BenchmarkResult]) -> list[dict]:
+    """Convert results to JSON-serializable dicts."""
+    out = []
+    for r in results:
+        out.append({
+            "strategy": r.strategy_name,
+            "scenario": r.scenario_name,
+            "total_memories": r.total_memories,
+            "avg_precision": round(r.avg_precision, 4),
+            "avg_injection_latency_ms": round(r.avg_injection_latency_ms, 2),
+            "avg_token_count": round(r.avg_token_count, 1),
+            "queries": [
+                {
+                    "time": qr.time,
+                    "query": qr.query,
+                    "hits": qr.hits,
+                    "total_ground_truth": len(qr.ground_truth),
+                    "precision": round(qr.precision, 4),
+                    "injection_latency_ms": round(qr.injection_latency_ms, 2),
+                    "token_count": qr.token_count,
+                }
+                for qr in r.query_results
+            ],
+        })
+    return out
+
+
+def run_all_scenarios(
+    scenario_dir: str | Path | None = None,
+    strategies: list[tuple] | None = None,
+) -> list[BenchmarkResult]:
+    """Run all strategies against all scenarios in a directory."""
+    import json
+
+    if scenario_dir is None:
+        scenario_dir = Path(__file__).parent / "scenarios"
+    scenario_dir = Path(scenario_dir)
+    if strategies is None:
+        strategies = ALL_STRATEGIES
+
+    scenario_files = sorted(scenario_dir.glob("*.yaml"))
+    all_results: list[BenchmarkResult] = []
+
+    for scenario_path in scenario_files:
+        for strategy_name, factory, injection_name in strategies:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                store = ChromaDBStore(persist_dir=tmpdir)
+                system = factory(store)
+                result = run_benchmark(
+                    scenario_path=scenario_path,
+                    system=system,
+                    store=store,
+                    strategy_name=strategy_name,
+                    injection_name=injection_name,
+                )
+                all_results.append(result)
+
+    return all_results
+
+
 if __name__ == "__main__":
-    scenario_path = Path(__file__).parent / "scenarios" / "kitchen_patrol.yaml"
+    import json
+    import sys
 
-    strategies = [
-        ("full_context", make_full_context, "dump"),
-        ("monolithic_rag", make_monolithic_rag, "topk"),
-    ]
-
-    results: list[BenchmarkResult] = []
-    for strategy_name, factory, injection_name in strategies:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = ChromaDBStore(persist_dir=tmpdir)
-            system = factory(store)
-            result = run_benchmark(
-                scenario_path=scenario_path,
-                system=system,
-                store=store,
-                strategy_name=strategy_name,
-                injection_name=injection_name,
-            )
-            results.append(result)
-
+    results = run_all_scenarios()
     print_results(results)
+
+    if "--json" in sys.argv:
+        out_path = Path("benchmark_results.json")
+        with open(out_path, "w") as f:
+            json.dump(results_to_json(results), f, indent=2)
+        print(f"\nResults saved to {out_path}")

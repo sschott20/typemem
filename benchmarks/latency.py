@@ -6,7 +6,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 
-from typemem.baselines import make_full_context, make_monolithic_rag
+from typemem.baselines import make_full_context, make_monolithic_rag, make_tiered_memory
 from typemem.chromadb_store import ChromaDBStore
 from typemem.system import MemorySystem
 
@@ -106,6 +106,7 @@ def run_latency_benchmark(
     strategies = [
         ("full_context", make_full_context, "dump"),
         ("monolithic_rag", make_monolithic_rag, "topk"),
+        ("tiered_memory", make_tiered_memory, "tiered"),
     ]
 
     all_results: list[LatencyResult] = []
