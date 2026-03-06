@@ -1,0 +1,311 @@
+name: "Building security patrol - 2 hours"
+description: "Robot patrols a 4-zone building (Lobby, East Wing, West Wing, Server Room) over 2 hours. Includes routine patrols, visitor activity, anomalies, and an escalating temperature issue in the Server Room."
+duration_minutes: 120
+
+events:
+  # === Initial patrol (0-600s) ===
+  - time: 0
+    data: {text: "Lobby: Front entrance secured, main lights on, shift starting"}
+  - time: 15
+    data: {text: "Lobby: Security desk activated, all cameras operational"}
+  - time: 30
+    data: {text: "East Wing: Hallway clear, all office doors locked"}
+  - time: 45
+    data: {text: "East Wing: Emergency exits secured, fire extinguishers in place"}
+  - time: 60
+    data: {text: "West Wing: Corridor empty, conference rooms dark"}
+  - time: 75
+    data: {text: "West Wing: Storage closet locked, utility room secure"}
+  - time: 90
+    data: {text: "Server Room: All racks operational, temperature 72F"}
+  - time: 105
+    data: {text: "Server Room: UPS systems green, cooling fans nominal"}
+  - time: 120
+    data: {text: "Lobby: Front entrance still secure, no activity outside"}
+  - time: 150
+    data: {text: "East Wing: Temperature 71F, all quiet"}
+  - time: 180
+    data: {text: "West Wing: Temperature 72F, all quiet"}
+  - time: 210
+    data: {text: "Server Room: Temperature 72F, no alerts"}
+  - time: 240
+    data: {text: "Lobby: Mail delivery arrived at front desk"}
+  - time: 270
+    data: {text: "Lobby: Mail sorted and placed in mailroom"}
+  - time: 300
+    data: {text: "East Wing: Hallway clear, lights on in office 201"}
+  - time: 330
+    data: {text: "East Wing: Office 201 light is on timer, no personnel present"}
+  - time: 360
+    data: {text: "West Wing: Corridor clear, all doors locked"}
+  - time: 390
+    data: {text: "Server Room: Temperature 72F, all systems normal"}
+  - time: 420
+    data: {text: "Lobby: Front entrance secure, one person approaching building"}
+
+  # === Visitor activity (450-1800s) ===
+  - time: 450
+    data: {text: "Lobby: Visitor signed in at reception, headed to East Wing"}
+  - time: 480
+    data: {text: "East Wing: Visitor and employee entered conference room B"}
+  - time: 540
+    data: {text: "East Wing: Conference room B occupied, two people in meeting"}
+  - time: 600
+    data: {text: "Lobby: Front entrance secure, no queue at reception"}
+  - time: 660
+    data: {text: "West Wing: Corridor clear, all quiet"}
+  - time: 720
+    data: {text: "Server Room: Temperature 72F, routine check passed"}
+  - time: 780
+    data: {text: "East Wing: Conference room B still occupied"}
+  - time: 840
+    data: {text: "Lobby: Second visitor arrived, signed in for West Wing meeting"}
+  - time: 870
+    data: {text: "West Wing: Second visitor escorted to meeting room by employee"}
+  - time: 900
+    data: {text: "East Wing: First visitor departed conference room B"}
+  - time: 960
+    data: {text: "Lobby: First visitor signed out, departed via front entrance"}
+  - time: 1020
+    data: {text: "West Wing: Meeting room occupied with visitor and two employees"}
+  - time: 1080
+    data: {text: "East Wing: All offices quiet, hallway clear"}
+  - time: 1140
+    data: {text: "Server Room: Temperature 73F, slight increase noted"}
+  - time: 1200
+    data: {text: "West Wing: Cleaning crew arrived, accessing supply closet"}
+  - time: 1260
+    data: {text: "West Wing: Cleaning crew mopping corridor floor"}
+  - time: 1320
+    data: {text: "East Wing: Cleaning crew moving to East Wing hallway"}
+  - time: 1380
+    data: {text: "East Wing: Cleaning crew vacuuming offices"}
+  - time: 1440
+    data: {text: "Lobby: Cleaning crew cleaning reception area and front desk"}
+
+  # === First anomaly (1500s) ===
+  - time: 1500
+    data: {text: "West Wing: Door to restricted lab found unlocked, no personnel inside"}
+  - time: 1530
+    data: {text: "West Wing: Restricted lab door secured and re-locked"}
+  - time: 1560
+    data: {text: "Server Room: Temperature 73F, stable"}
+  - time: 1620
+    data: {text: "West Wing: Second visitor departed meeting room, escorted to lobby"}
+  - time: 1680
+    data: {text: "Lobby: Second visitor signed out, departed building"}
+  - time: 1740
+    data: {text: "East Wing: Cleaning crew finished work in East Wing"}
+  - time: 1800
+    data: {text: "West Wing: Cleaning crew departed building via service entrance"}
+
+  # === Quiet period with rising temperature (1860-3000s) ===
+  - time: 1860
+    data: {text: "Lobby: Building quieting down, front entrance locked on timer"}
+  - time: 1920
+    data: {text: "East Wing: All offices dark, hallway lights dimmed to night mode"}
+  - time: 1980
+    data: {text: "West Wing: Corridor empty, motion sensors armed for night"}
+  - time: 2040
+    data: {text: "Server Room: Temperature 74F, slight upward trend from 72F baseline"}
+  - time: 2100
+    data: {text: "Lobby: No activity, entrance double-locked"}
+  - time: 2160
+    data: {text: "East Wing: Quiet, no motion detected"}
+  - time: 2220
+    data: {text: "West Wing: Quiet, no motion detected"}
+  - time: 2280
+    data: {text: "Server Room: Temperature 74F, cooling system running"}
+  - time: 2340
+    data: {text: "Lobby: Security camera captured stray cat outside entrance"}
+  - time: 2400
+    data: {text: "Server Room: Temperature 75F, now 3 degrees above 72F baseline"}
+  - time: 2460
+    data: {text: "East Wing: Motion sensor triggered briefly, likely HVAC airflow"}
+  - time: 2520
+    data: {text: "West Wing: All quiet, doors verified secure"}
+  - time: 2580
+    data: {text: "Server Room: Temperature 75F, monitoring closely"}
+  - time: 2640
+    data: {text: "Lobby: Night lighting fully activated"}
+  - time: 2700
+    data: {text: "East Wing: Periodic sweep complete, all clear"}
+  - time: 2760
+    data: {text: "West Wing: Periodic sweep complete, all clear"}
+  - time: 2820
+    data: {text: "Server Room: Temperature 76F, continuing upward trend"}
+  - time: 2880
+    data: {text: "Lobby: Exterior cameras show empty parking lot"}
+  - time: 2940
+    data: {text: "East Wing: Hallway clear, all office doors verified locked"}
+
+  # === Security incident (3000-3600s) ===
+  - time: 3000
+    data: {text: "West Wing: Unfamiliar person detected near restricted lab, no badge visible"}
+  - time: 3060
+    data: {text: "West Wing: Unbadged person moving toward emergency exit"}
+  - time: 3120
+    data: {text: "West Wing: Person exited via emergency exit, door alarm triggered"}
+  - time: 3180
+    data: {text: "West Wing: Emergency exit alarm reset, door re-secured"}
+  - time: 3240
+    data: {text: "Lobby: No corresponding entry record found for person seen in West Wing"}
+  - time: 3300
+    data: {text: "Server Room: Temperature 76F, elevated but stable for now"}
+  - time: 3360
+    data: {text: "East Wing: All clear, no unusual activity"}
+  - time: 3420
+    data: {text: "West Wing: Restricted lab door verified locked, area sweep clear"}
+  - time: 3480
+    data: {text: "Server Room: Temperature 77F, upward trend continuing"}
+  - time: 3540
+    data: {text: "Lobby: All quiet, cross-checked visitor logs, all visitors signed out"}
+
+  # === Maintenance visit (3600-4620s) ===
+  - time: 3600
+    data: {text: "Server Room: Maintenance technician badged in for scheduled cooling check"}
+  - time: 3660
+    data: {text: "Server Room: Technician inspecting cooling system components"}
+  - time: 3720
+    data: {text: "Server Room: Technician reports cooling unit underperforming, fan degraded"}
+  - time: 3780
+    data: {text: "East Wing: All quiet, lights on dim mode"}
+  - time: 3840
+    data: {text: "West Wing: Motion sensor triggered near restricted lab area"}
+  - time: 3900
+    data: {text: "West Wing: False alarm, motion was automated floor cleaning bot"}
+  - time: 3960
+    data: {text: "Server Room: Technician adjusting cooling parameters as temporary fix"}
+  - time: 4020
+    data: {text: "Server Room: Temperature 77F post-adjustment, not improving yet"}
+  - time: 4080
+    data: {text: "Lobby: All secure, no visitors expected tonight"}
+  - time: 4140
+    data: {text: "East Wing: Periodic sweep clear, no issues"}
+  - time: 4200
+    data: {text: "Server Room: Maintenance technician completed temporary fix, departed"}
+  - time: 4260
+    data: {text: "Server Room: Temperature 77F, monitoring effectiveness of repair"}
+  - time: 4320
+    data: {text: "West Wing: All quiet, no further motion alerts"}
+  - time: 4380
+    data: {text: "Lobby: Building in full evening lockdown mode"}
+  - time: 4440
+    data: {text: "Server Room: Temperature 78F, cooling still not keeping up"}
+  - time: 4500
+    data: {text: "East Wing: Motion detected in office 203, lights are off"}
+  - time: 4560
+    data: {text: "East Wing: Investigated office 203, window blind swaying from HVAC vent"}
+  - time: 4620
+    data: {text: "West Wing: All clear, evening sweep complete"}
+
+  # === Critical period (4680-6360s) ===
+  - time: 4680
+    data: {text: "Server Room: Temperature 79F, approaching high-alert threshold of 80F"}
+  - time: 4740
+    data: {text: "Lobby: All secure, quiet night"}
+  - time: 4800
+    data: {text: "Server Room: Temperature 80F, HIGH TEMPERATURE ALERT triggered"}
+  - time: 4860
+    data: {text: "East Wing: All clear, routine sweep"}
+  - time: 4920
+    data: {text: "West Wing: Door to restricted lab found unlocked AGAIN, second incident today"}
+  - time: 4980
+    data: {text: "West Wing: Restricted lab interior checked, nothing appears disturbed, door re-secured"}
+  - time: 5040
+    data: {text: "Server Room: Temperature 81F, contacted facilities management for emergency repair"}
+  - time: 5100
+    data: {text: "Server Room: Emergency maintenance technician dispatched, ETA 5 minutes"}
+  - time: 5160
+    data: {text: "Server Room: Technician arrived, inspecting cooling compressor unit"}
+  - time: 5220
+    data: {text: "Lobby: Technician entry logged in after-hours access system"}
+  - time: 5280
+    data: {text: "East Wing: All quiet, no concerns"}
+  - time: 5340
+    data: {text: "West Wing: Re-checked restricted lab area after second unlock incident, all secure"}
+  - time: 5400
+    data: {text: "Server Room: Technician identified failing compressor fan as root cause"}
+  - time: 5460
+    data: {text: "Server Room: Temperature 82F, technician replacing compressor fan"}
+  - time: 5520
+    data: {text: "Lobby: No unusual activity during repair"}
+  - time: 5580
+    data: {text: "East Wing: All quiet, patrol sweep complete"}
+  - time: 5640
+    data: {text: "West Wing: All secure, no motion alerts"}
+  - time: 5700
+    data: {text: "Server Room: Compressor fan replaced, cooling system restarting"}
+  - time: 5760
+    data: {text: "Server Room: Temperature 81F, beginning to decrease after repair"}
+  - time: 5820
+    data: {text: "Lobby: All quiet, building secure"}
+  - time: 5880
+    data: {text: "East Wing: All clear, final sweep of shift"}
+  - time: 5940
+    data: {text: "West Wing: Final sweep clear, restricted lab door verified locked and secure"}
+  - time: 6000
+    data: {text: "Server Room: Temperature 79F, cooling recovery confirmed, trending down"}
+  - time: 6060
+    data: {text: "Lobby: Shift nearing end, preparing handoff documentation"}
+  - time: 6120
+    data: {text: "East Wing: Final sweep complete, all clear, no issues"}
+  - time: 6180
+    data: {text: "West Wing: Final sweep complete, all doors locked including restricted lab"}
+  - time: 6240
+    data: {text: "Server Room: Temperature 77F, returning to normal operating range"}
+  - time: 6300
+    data: {text: "Server Room: All systems stabilized, temperature steady at 77F and falling"}
+  - time: 6360
+    data: {text: "Lobby: Shift handoff notes prepared, all zones accounted for and secure"}
+
+queries:
+  - time: 500
+    query: "What is the current status of each zone?"
+    ground_truth: ["secure", "entrance", "clear", "locked", "72F", "operational"]
+    token_budget: 400
+
+  - time: 1100
+    query: "Have there been any visitors today?"
+    ground_truth: ["visitor", "signed in", "East Wing", "conference room"]
+    token_budget: 300
+
+  - time: 1600
+    query: "Has anything unusual happened?"
+    ground_truth: ["restricted lab", "unlocked", "door"]
+    token_budget: 300
+
+  - time: 2500
+    query: "What is happening with the Server Room temperature?"
+    ground_truth: ["temperature", "increasing", "75F", "above", "baseline"]
+    token_budget: 300
+
+  - time: 3200
+    query: "Have there been any security incidents?"
+    ground_truth: ["unfamiliar person", "restricted", "no badge", "emergency exit", "unlocked"]
+    token_budget: 400
+
+  - time: 3700
+    query: "What is happening in the Server Room right now?"
+    ground_truth: ["maintenance", "technician", "cooling", "temperature", "underperforming"]
+    token_budget: 300
+
+  - time: 4600
+    query: "Summarize all activity in the West Wing today"
+    ground_truth: ["restricted lab", "unlocked", "cleaning crew", "visitor", "meeting", "motion"]
+    token_budget: 400
+
+  - time: 5200
+    query: "What are the most critical concerns right now?"
+    ground_truth: ["temperature", "server room", "81F", "cooling", "restricted lab", "unlocked"]
+    token_budget: 400
+
+  - time: 6100
+    query: "How has the Server Room situation evolved over the full shift?"
+    ground_truth: ["72F", "temperature", "increasing", "maintenance", "compressor", "fan", "repair", "recovery"]
+    token_budget: 400
+
+  - time: 6400
+    query: "What lessons and patterns should be passed to the next shift?"
+    ground_truth: ["server room", "cooling", "temperature", "restricted lab", "unlocked", "recurring"]
+    token_budget: 400
