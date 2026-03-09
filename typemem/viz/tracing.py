@@ -159,6 +159,13 @@ class TracingSystem:
         return self.system.observe(raw_data)
 
     def consolidate(self) -> list[str]:
+        # Snapshot entries before consolidation to capture inputs
+        pre_entries = self.tracing_store.inner.get_all()
+        pre_snapshot = {
+            e.id: {"id": e.id, "text": e.text, "metadata": e.metadata, "timestamp": e.timestamp}
+            for e in pre_entries
+        }
+
         events_before = len(self.tracing_store.get_events())
         t0 = time.perf_counter()
         ids = self.system.consolidate()
@@ -179,9 +186,24 @@ class TracingSystem:
             elif ev.operation == "delete":
                 deletions.append(ev.details["id"])
 
+        # Inputs = entries that existed before and were consumed (deleted or summarized)
+        # If nothing was deleted/created, inputs is empty (noop consolidation)
+        inputs = []
+        if outputs or deletions:
+            # Deleted entries were direct inputs
+            for did in deletions:
+                if did in pre_snapshot:
+                    inputs.append(pre_snapshot[did])
+            # Entries that still exist but were summarized into outputs
+            # (their text appears in an output's text) — heuristic match
+            output_texts = " ".join(o.get("text", "") for o in outputs)
+            for entry in pre_snapshot.values():
+                if entry["id"] not in deletions and entry["text"] in output_texts:
+                    inputs.append(entry)
+
         event = ConsolidationEvent(
             name=self._guess_consolidation_name(),
-            inputs=[],
+            inputs=inputs,
             outputs=outputs,
             deletions=deletions,
             duration_ms=duration_ms,

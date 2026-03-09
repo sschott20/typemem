@@ -354,7 +354,7 @@ html, body {
 }
 
 .op-row.expanded .op-detail {
-  max-height: 800px;
+  max-height: 1200px;
 }
 
 .op-detail-content {
@@ -710,6 +710,7 @@ html, body {
 
   function renderConsolidationItem(c, idx) {
     var isExpanded = expandedOpIdx === idx;
+    var numInputs = c.inputs ? c.inputs.length : 0;
     var numOutputs = c.outputs ? c.outputs.length : 0;
     var numDeletions = c.deletions ? c.deletions.length : 0;
     var html = '<div class="op-row' + (isExpanded ? " expanded" : "") + '" data-op-idx="' + idx + '">';
@@ -718,6 +719,9 @@ html, body {
     html += '<span class="op-time">' + escapeHtml(formatTime(c.timestamp)) + '</span>';
     html += '<span class="op-desc">';
     html += escapeHtml(c.name || "consolidation");
+    if (numInputs > 0) {
+      html += '<span class="consol-badge" style="background:rgba(139,148,158,0.15);color:var(--tier-raw);">' + numInputs + ' input' + (numInputs !== 1 ? 's' : '') + '</span>';
+    }
     html += '<span class="consol-badge">' + numOutputs + ' output' + (numOutputs !== 1 ? 's' : '') + '</span>';
     if (numDeletions > 0) {
       html += '<span class="consol-badge" style="background:rgba(248,129,102,0.15);color:#f78166;">' + numDeletions + ' deleted</span>';
@@ -736,17 +740,33 @@ html, body {
   function renderConsolidationDetail(c) {
     var html = '<div class="op-detail-content">';
     html += '<div class="detail-field"><span class="label">Duration:</span> ' + escapeHtml((c.duration_ms || 0).toFixed(1)) + ' ms</div>';
+    if (c.inputs && c.inputs.length > 0) {
+      html += '<div class="detail-field" style="margin-top:8px;"><span class="label">Inputs (' + c.inputs.length + ' entries consumed):</span></div>';
+      html += '<table><thead><tr><th>ID</th><th>Text</th><th>Tier</th><th>Time</th></tr></thead><tbody>';
+      c.inputs.forEach(function(inp) {
+        var tier = (inp.metadata && inp.metadata._tier) || "none";
+        html += '<tr>';
+        html += '<td>' + escapeHtml(truncate(inp.id || "", 10)) + '</td>';
+        html += '<td>' + escapeHtml(truncate(inp.text || "", 60)) + '</td>';
+        html += '<td><span class="tier-badge ' + tierClass(tier) + '" style="font-size:9px;padding:0 6px;">' + escapeHtml(tier) + '</span></td>';
+        html += '<td style="color:var(--text-secondary);">' + escapeHtml(timeAgo(inp.timestamp)) + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    }
     if (c.outputs && c.outputs.length > 0) {
-      html += '<div class="detail-field"><span class="label">Outputs:</span></div>';
+      html += '<div class="detail-field" style="margin-top:10px;"><span class="label">Outputs (' + c.outputs.length + ' created):</span></div>';
       c.outputs.forEach(function(o) {
+        var tier = (o.metadata && o.metadata._tier) || "none";
         html += '<div style="margin:4px 0 4px 12px;font-size:11px;">';
+        html += '<span class="tier-badge ' + tierClass(tier) + '" style="font-size:9px;padding:0 6px;margin-right:6px;">' + escapeHtml(tier) + '</span>';
         html += '<span style="color:var(--text-secondary);">' + escapeHtml(truncate(o.id || "", 12)) + '</span> ';
-        html += escapeHtml(truncate(o.text || "(no text)", 80));
+        html += escapeHtml(o.text || "(no text)");
         html += '</div>';
       });
     }
     if (c.deletions && c.deletions.length > 0) {
-      html += '<div class="detail-field" style="margin-top:8px;"><span class="label">Deleted IDs:</span></div>';
+      html += '<div class="detail-field" style="margin-top:10px;"><span class="label">Deleted (' + c.deletions.length + ' expired):</span></div>';
       html += '<pre>' + escapeHtml(c.deletions.join("\n")) + '</pre>';
     }
     html += '</div>';
