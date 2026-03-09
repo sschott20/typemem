@@ -6,6 +6,8 @@ Usage:
     python -m typemem.demo --compare        # metrics comparison table
     python -m typemem.demo --interactive    # interactive REPL
     python -m typemem.demo --all            # all three modes
+    python -m typemem.demo --viz            # narrate + web visualizer at localhost:8811
+    python -m typemem.demo --interactive --viz  # interactive + visualizer
 """
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ import yaml
 from typemem.baselines import make_full_context, make_monolithic_rag
 from typemem.chromadb_store import ChromaDBStore
 from typemem.tiered import make_tiered_llm
+from typemem.viz import TracingStore, TracingSystem, start_viz
 
 _DEFAULT_SCENARIO = (
     Path(__file__).parent.parent / "benchmarks" / "scenarios" / "building_security.yaml"
@@ -57,7 +60,7 @@ def _build_timeline(scenario: dict) -> list[dict]:
 # Mode 1: Narrated simulation
 # ---------------------------------------------------------------------------
 
-def run_narrate(scenario_path: Path, sleep_per_event: float = 0.03):
+def run_narrate(scenario_path: Path, sleep_per_event: float = 0.03, viz: bool = False):
     """Step through the timeline printing events, consolidation, and queries."""
     scenario = _load_scenario(scenario_path)
     timeline = _build_timeline(scenario)
@@ -67,11 +70,20 @@ def run_narrate(scenario_path: Path, sleep_per_event: float = 0.03):
     stores = {}
     systems = {}
     injection_names = {}
+    viz_server = None
     for name, factory, inj_name in _STRATEGIES:
         td = tempfile.mkdtemp()
         tmpdirs.append(td)
-        stores[name] = ChromaDBStore(persist_dir=td)
-        systems[name] = factory(stores[name])
+        store = ChromaDBStore(persist_dir=td)
+        stores[name] = store
+        if viz and name == "tiered_llm":
+            tracing_store = TracingStore(store)
+            raw_system = factory(tracing_store)
+            tracing_system = TracingSystem(raw_system, tracing_store)
+            systems[name] = tracing_system
+            viz_server = start_viz(tracing_store, tracing_system, port=8811)
+        else:
+            systems[name] = factory(store)
         injection_names[name] = inj_name
 
     events_fed = 0
@@ -235,14 +247,21 @@ def _run_strategy(timeline, system, injection_name):
 # Mode 3: Interactive REPL
 # ---------------------------------------------------------------------------
 
-def run_interactive(scenario_path: Path):
+def run_interactive(scenario_path: Path, viz: bool = False):
     """Load scenario with tiered memory, then enter interactive query mode."""
     scenario = _load_scenario(scenario_path)
     events = sorted(scenario["events"], key=lambda e: e["time"])
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = ChromaDBStore(persist_dir=tmpdir)
-        system = make_tiered_llm(store)
+        if viz:
+            tracing_store = TracingStore(store)
+            raw_system = make_tiered_llm(tracing_store)
+            system = TracingSystem(raw_system, tracing_store)
+            viz_server = start_viz(tracing_store, system, port=8811)
+        else:
+            system = make_tiered_llm(store)
+            viz_server = None
 
         # Feed all events
         print(f"\nLoading {len(events)} events...", end="", flush=True)
@@ -325,6 +344,7 @@ def main():
     mode.add_argument("--interactive", action="store_true", help="Interactive query REPL")
     mode.add_argument("--all", action="store_true", help="Run all three modes in sequence")
     parser.add_argument("--scenario", type=str, default=None, help="Path to scenario YAML")
+    parser.add_argument("--viz", action="store_true", help="Launch web visualizer (http://localhost:8811)")
     args = parser.parse_args()
 
     scenario = Path(args.scenario) if args.scenario else _DEFAULT_SCENARIO
@@ -342,17 +362,17 @@ def main():
         sys.exit(1)
 
     if args.all:
-        run_narrate(scenario)
+        run_narrate(scenario, viz=args.viz)
         print(f"\n{'=' * 70}\n")
         run_compare(scenario)
         print(f"\n{'=' * 70}\n")
-        run_interactive(scenario)
+        run_interactive(scenario, viz=args.viz)
     elif args.compare:
         run_compare(scenario)
     elif args.interactive:
-        run_interactive(scenario)
+        run_interactive(scenario, viz=args.viz)
     else:
-        run_narrate(scenario)
+        run_narrate(scenario, viz=args.viz)
 
 
 if __name__ == "__main__":

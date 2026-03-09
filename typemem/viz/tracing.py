@@ -159,7 +159,7 @@ class TracingSystem:
         return self.system.observe(raw_data)
 
     def consolidate(self) -> list[str]:
-        # Snapshot entries before consolidation to capture inputs
+        # Snapshot entries before consolidation to identify inputs
         pre_entries = self.tracing_store.inner.get_all()
         pre_snapshot = {
             e.id: {"id": e.id, "text": e.text, "metadata": e.metadata, "timestamp": e.timestamp}
@@ -176,6 +176,7 @@ class TracingSystem:
 
         outputs = []
         deletions = []
+        searched_ids: set[str] = set()
         for ev in new_events:
             if ev.operation == "add":
                 outputs.append({"id": ev.details["id"], "text": ev.details["text"],
@@ -185,21 +186,39 @@ class TracingSystem:
                     outputs.append({"id": mid})
             elif ev.operation == "delete":
                 deletions.append(ev.details["id"])
+            elif ev.operation == "search":
+                for r in ev.details.get("results", []):
+                    if r.get("id"):
+                        searched_ids.add(r["id"])
 
-        # Inputs = entries that existed before and were consumed (deleted or summarized)
-        # If nothing was deleted/created, inputs is empty (noop consolidation)
+        # Inputs: entries that were accessed during consolidation
+        # 1. Entries returned by search calls (semantic clustering)
+        # 2. Entries that were deleted (pruned)
+        # 3. If no searches happened but outputs were created, diff to find consumed entries
         inputs = []
+        seen_ids: set[str] = set()
         if outputs or deletions:
-            # Deleted entries were direct inputs
+            # Searched entries that existed before = direct inputs to summarization
+            for eid in searched_ids:
+                if eid in pre_snapshot and eid not in seen_ids:
+                    # Exclude entries that were created during this consolidation
+                    output_ids = {o.get("id") for o in outputs}
+                    if eid not in output_ids:
+                        inputs.append(pre_snapshot[eid])
+                        seen_ids.add(eid)
+            # Deleted entries that weren't already captured
             for did in deletions:
-                if did in pre_snapshot:
+                if did in pre_snapshot and did not in seen_ids:
                     inputs.append(pre_snapshot[did])
-            # Entries that still exist but were summarized into outputs
-            # (their text appears in an output's text) — heuristic match
-            output_texts = " ".join(o.get("text", "") for o in outputs)
-            for entry in pre_snapshot.values():
-                if entry["id"] not in deletions and entry["text"] in output_texts:
-                    inputs.append(entry)
+                    seen_ids.add(did)
+            # Fallback: if no searches but outputs exist (simple concatenation strategy),
+            # find entries whose text appears in output text
+            if not searched_ids and outputs:
+                output_texts = " ".join(o.get("text", "") for o in outputs)
+                for entry in pre_snapshot.values():
+                    if entry["id"] not in seen_ids and entry["text"] in output_texts:
+                        inputs.append(entry)
+                        seen_ids.add(entry["id"])
 
         event = ConsolidationEvent(
             name=self._guess_consolidation_name(),
