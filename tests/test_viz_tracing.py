@@ -6,7 +6,8 @@ import pytest
 
 from typemem.viz.tracing import ConsolidationEvent, InjectionEvent, StoreEvent
 from typemem.chromadb_store import ChromaDBStore
-from typemem.viz.tracing import TracingStore
+from typemem.viz.tracing import TracingStore, TracingSystem
+from typemem.baselines import make_tiered_memory, make_full_context
 
 
 def test_store_event_creation():
@@ -115,3 +116,50 @@ class TestTracingStore:
         event = q.get_nowait()
         assert event.operation == "add"
         tracing.unsubscribe(q)
+
+
+class TestTracingSystem:
+    def test_consolidation_tracked(self, store):
+        tracing = TracingStore(store)
+        system = make_tiered_memory(tracing, retention_secs=600.0)
+        ts = TracingSystem(system, tracing)
+        for i in range(5):
+            ts.observe({"text": f"Observation {i}"})
+        ts.consolidate()
+        consol_events = ts.get_consolidations()
+        assert len(consol_events) == 1
+        assert len(consol_events[0].outputs) >= 1
+        assert consol_events[0].duration_ms >= 0
+
+    def test_injection_tracked(self, store):
+        tracing = TracingStore(store)
+        system = make_full_context(tracing)
+        ts = TracingSystem(system, tracing)
+        ts.observe({"text": "cup on table"})
+        ts.inject("dump", "where is cup", 500)
+        inj_events = ts.get_injections()
+        assert len(inj_events) == 1
+        assert inj_events[0].query == "where is cup"
+        assert inj_events[0].token_budget == 500
+        assert len(inj_events[0].context) > 0
+
+    def test_delegates_to_inner_system(self, store):
+        tracing = TracingStore(store)
+        system = make_full_context(tracing)
+        ts = TracingSystem(system, tracing)
+        ids = ts.observe({"text": "hello"})
+        assert len(ids) == 1
+        assert tracing.count() == 1
+
+    def test_consolidation_captures_deletions(self, store):
+        tracing = TracingStore(store)
+        system = make_tiered_memory(tracing, retention_secs=0.0)
+        ts = TracingSystem(system, tracing)
+        now = time.time()
+        for i in range(3):
+            tracing.add(f"Old obs {i}", metadata={"_tier": "raw", "_timestamp": now - 1000})
+        ts.consolidate()
+        consol_events = ts.get_consolidations()
+        assert len(consol_events) == 1
+        assert len(consol_events[0].deletions) > 0
+        assert len(consol_events[0].outputs) >= 1

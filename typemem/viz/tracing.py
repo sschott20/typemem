@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from typemem.store import MemoryStore
+from typemem.system import MemorySystem
 from typemem.types import MemoryEntry, SearchResult
 
 
@@ -133,3 +134,113 @@ class TracingStore(MemoryStore):
 
     def count(self, filters: dict | None = None) -> int:
         return self.inner.count(filters=filters)
+
+
+class TracingSystem:
+    """Wrapper around MemorySystem that captures consolidation and injection details."""
+
+    def __init__(self, system: MemorySystem, tracing_store: TracingStore):
+        self.system = system
+        self.tracing_store = tracing_store
+        self._consolidations: list[ConsolidationEvent] = []
+        self._injections: list[InjectionEvent] = []
+        self._lock = threading.Lock()
+
+    def observe(self, raw_data: dict) -> list[str]:
+        return self.system.observe(raw_data)
+
+    def consolidate(self) -> list[str]:
+        events_before = len(self.tracing_store.get_events())
+        t0 = time.perf_counter()
+        ids = self.system.consolidate()
+        duration_ms = (time.perf_counter() - t0) * 1000.0
+
+        all_events = self.tracing_store.get_events()
+        new_events = all_events[events_before:]
+
+        outputs = []
+        deletions = []
+        for ev in new_events:
+            if ev.operation == "add":
+                outputs.append({"id": ev.details["id"], "text": ev.details["text"],
+                                "metadata": ev.details.get("metadata", {})})
+            elif ev.operation == "add_batch":
+                for mid in ev.details.get("ids", []):
+                    outputs.append({"id": mid})
+            elif ev.operation == "delete":
+                deletions.append(ev.details["id"])
+
+        event = ConsolidationEvent(
+            name=self._guess_consolidation_name(),
+            inputs=[],
+            outputs=outputs,
+            deletions=deletions,
+            duration_ms=duration_ms,
+        )
+        with self._lock:
+            self._consolidations.append(event)
+            for q in self.tracing_store._subscribers:
+                try:
+                    q.put_nowait(event)
+                except queue.Full:
+                    pass
+        return ids
+
+    def inject(self, name: str, query: str, token_budget: int) -> str:
+        events_before = len(self.tracing_store.get_events())
+        t0 = time.perf_counter()
+        context = self.system.inject(name, query, token_budget)
+        duration_ms = (time.perf_counter() - t0) * 1000.0
+
+        all_events = self.tracing_store.get_events()
+        new_events = all_events[events_before:]
+        search_results = []
+        for ev in new_events:
+            if ev.operation == "search":
+                search_results = ev.details.get("results", [])
+                break
+
+        event = InjectionEvent(
+            name=name,
+            query=query,
+            token_budget=token_budget,
+            search_results=search_results,
+            context=context,
+            duration_ms=duration_ms,
+        )
+        with self._lock:
+            self._injections.append(event)
+            for q in self.tracing_store._subscribers:
+                try:
+                    q.put_nowait(event)
+                except queue.Full:
+                    pass
+        return context
+
+    def get_consolidations(self) -> list[ConsolidationEvent]:
+        with self._lock:
+            return list(self._consolidations)
+
+    def get_injections(self) -> list[InjectionEvent]:
+        with self._lock:
+            return list(self._injections)
+
+    def _guess_consolidation_name(self) -> str:
+        names = list(self.system._consolidations.keys())
+        return names[0] if names else "unknown"
+
+    # Pass-through for MemorySystem API
+    def add_observation(self, *a, **kw):
+        self.system.add_observation(*a, **kw)
+
+    def add_consolidation(self, *a, **kw):
+        self.system.add_consolidation(*a, **kw)
+
+    def add_injection(self, *a, **kw):
+        self.system.add_injection(*a, **kw)
+
+    def start(self, *a, **kw):
+        self.system.start(*a, **kw)
+
+    def stop(self):
+        self.system.stop()
