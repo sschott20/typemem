@@ -163,3 +163,23 @@ class TestTracingSystem:
         assert len(consol_events) == 1
         assert len(consol_events[0].deletions) > 0
         assert len(consol_events[0].outputs) >= 1
+
+
+def test_start_viz_returns_server(tmp_path):
+    """start_viz spins up a server that responds."""
+    import urllib.request
+    from typemem.viz import TracingStore, TracingSystem, start_viz
+
+    store = ChromaDBStore(persist_dir=str(tmp_path / "chroma"))
+    tracing = TracingStore(store)
+    system = make_tiered_memory(tracing)
+    ts = TracingSystem(system, tracing)
+    server = start_viz(tracing, ts, port=0, open_browser=False)
+    try:
+        url = f"http://localhost:{server.port}/"
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            assert resp.status == 200
+            html = resp.read().decode()
+            assert "typemem" in html.lower()
+    finally:
+        server.stop()
