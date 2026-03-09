@@ -78,6 +78,15 @@ class TracingStore(MemoryStore):
         with self._lock:
             self._subscribers.remove(q)
 
+    def broadcast(self, event: Any) -> None:
+        """Push an arbitrary event to all SSE subscribers."""
+        with self._lock:
+            for q in self._subscribers:
+                try:
+                    q.put_nowait(event)
+                except queue.Full:
+                    pass
+
     def get_events(self) -> list[StoreEvent]:
         with self._lock:
             return list(self._events)
@@ -142,8 +151,8 @@ class TracingSystem:
     def __init__(self, system: MemorySystem, tracing_store: TracingStore):
         self.system = system
         self.tracing_store = tracing_store
-        self._consolidations: list[ConsolidationEvent] = []
-        self._injections: list[InjectionEvent] = []
+        self._consolidations: deque[ConsolidationEvent] = deque(maxlen=1000)
+        self._injections: deque[InjectionEvent] = deque(maxlen=1000)
         self._lock = threading.Lock()
 
     def observe(self, raw_data: dict) -> list[str]:
@@ -179,11 +188,7 @@ class TracingSystem:
         )
         with self._lock:
             self._consolidations.append(event)
-            for q in self.tracing_store._subscribers:
-                try:
-                    q.put_nowait(event)
-                except queue.Full:
-                    pass
+        self.tracing_store.broadcast(event)
         return ids
 
     def inject(self, name: str, query: str, token_budget: int) -> str:
@@ -210,11 +215,7 @@ class TracingSystem:
         )
         with self._lock:
             self._injections.append(event)
-            for q in self.tracing_store._subscribers:
-                try:
-                    q.put_nowait(event)
-                except queue.Full:
-                    pass
+        self.tracing_store.broadcast(event)
         return context
 
     def get_consolidations(self) -> list[ConsolidationEvent]:

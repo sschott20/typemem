@@ -7,6 +7,7 @@ import threading
 import time
 from dataclasses import asdict
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from typing import Any
 
 from typemem.viz.tracing import (
@@ -120,11 +121,15 @@ class VizHandler(BaseHTTPRequestHandler):
             self.send_error(404)
 
 
+class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+
+
 class VizServer:
     """Threaded HTTP server for memory visualization."""
 
     def __init__(self, tracing_store: TracingStore, tracing_system: TracingSystem, port: int = 8811):
-        self._server = HTTPServer(("127.0.0.1", port), VizHandler)
+        self._server = _ThreadedHTTPServer(("127.0.0.1", port), VizHandler)
         self._server.tracing_store = tracing_store
         self._server.tracing_system = tracing_system
         self.port = self._server.server_address[1]
