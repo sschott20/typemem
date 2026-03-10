@@ -16,9 +16,7 @@ _registry: Dict[str, List[collections.deque]] = {}
 def push(channel: str, data: dict) -> None:
     """Push an event to all subscribers of a channel. Fire-and-forget."""
     with _lock:
-        subscribers = _registry.get(channel)
-    if subscribers is None:
-        return
+        subscribers = list(_registry.get(channel, []))
     for dq in subscribers:
         dq.append(data)
 

@@ -41,6 +41,14 @@ class MemoryManager:
         self.links = LinkIndex(link_path)
         self._recorder = None
 
+    @property
+    def persist_dir(self) -> str:
+        return self._persist_dir
+
+    def all_ids(self) -> set:
+        """Return set of all item IDs in the collection."""
+        return set(self._collection.get(include=[])["ids"])
+
     def set_recorder(self, recorder):
         self._recorder = recorder
 

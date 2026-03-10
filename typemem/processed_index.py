@@ -1,8 +1,11 @@
 """Per-plugin processed ID tracking with JSON persistence."""
 
 import json
+import logging
 import os
 from typing import Dict, List, Set
+
+logger = logging.getLogger(__name__)
 
 
 class ProcessedIndex:
@@ -14,9 +17,13 @@ class ProcessedIndex:
         self._path = path
         self._data: Dict[str, Set[str]] = {}
         if os.path.exists(path):
-            with open(path) as f:
-                raw = json.load(f)
-            self._data = {k: set(v) for k, v in raw.items()}
+            try:
+                with open(path) as f:
+                    raw = json.load(f)
+                self._data = {k: set(v) for k, v in raw.items()}
+            except (json.JSONDecodeError, ValueError):
+                logger.warning("Corrupt processed index at %s, starting fresh", path)
+                self._data = {}
 
     def is_processed(self, plugin_name: str, item_id: str) -> bool:
         return item_id in self._data.get(plugin_name, set())

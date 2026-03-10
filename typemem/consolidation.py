@@ -23,7 +23,7 @@ class ConsolidationEngine:
         self._expiry_interval = expiry_interval
         self._last_expiry: float = 0.0
         self._processed_index = ProcessedIndex(
-            os.path.join(manager._persist_dir, "processed.json")
+            os.path.join(manager.persist_dir, "processed.json")
         )
 
     def set_recorder(self, recorder):
@@ -89,6 +89,6 @@ class ConsolidationEngine:
                 self._manager.expire_tier(tier)
             self._last_expiry = now
 
-            all_ids = set(self._manager._collection.get(include=[])["ids"])
+            all_ids = self._manager.all_ids()
             self._processed_index.prune(all_ids)
             self._processed_index.save()
