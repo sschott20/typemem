@@ -1,6 +1,6 @@
-\documentclass[10pt]{article}
+\documentclass[11pt]{article}
 
-\usepackage[margin=0.85in]{geometry}
+\usepackage[margin=1in]{geometry}
 \usepackage{times}
 \usepackage{hyperref}
 \usepackage{url}
@@ -8,70 +8,39 @@
 \usepackage{titlesec}
 
 % Compact spacing
-\setlength{\parskip}{4pt}
+\setlength{\parskip}{2pt}
 \setlength{\parindent}{0pt}
-\titlespacing*{\section}{0pt}{10pt}{4pt}
-\titlespacing*{\subsection}{0pt}{8pt}{3pt}
+\titlespacing*{\section}{0pt}{6pt}{3pt}
+\titlespacing*{\subsection}{0pt}{4pt}{2pt}
 
-\title{\vspace{-0.6in}Do Robots Need Cognitive Memory? An Empirical Study of\\Multi-Tier LLM-Augmented Memory for Robotic Agents\vspace{-0.15in}}
-\author{Alex Schott \and Leo Li}
-\date{\vspace{-0.25in}}
+\title{\vspace{-0.6in}\Large Do Robots Need Cognitive Memory? An Empirical Study of\\Multi-Tier LLM-Augmented Memory for Robotic Agents\vspace{-0.15in}}
+
+\author{Alex Schott \and Binghong(Leo) Li}
+\date{\vspace{-0.4in}}
 
 \begin{document}
 \maketitle
 
 \section{Problem and Motivation}
 
-LLM-controlled robotic systems where a language model directly selects actions from sensor input require memory to operate over extended time horizons. Without memory, a robot cannot recall past observations, learn from failed actions, or build a persistent model of its environment. Recent work on LLM agentic memory (MemGPT, Reflexion, Generative Agents) have made significant progress, but these systems are designed for text-native environments where observations arrive as natural language and at human-interactive rates. Robotic systems face fundamentally different constraints:
-
-\textbf{Data volume and modality.} Robots produce continuous, multi-modal sensor data (RGB, LiDAR, joint states) at 10--100\,Hz---far exceeding what any context window can hold, and in formats that require interpretation before an LLM can reason about them.
-
-\textbf{Latency sensitivity.} When the LLM is on the critical path of the control loop, memory retrieval latency directly degrades robot responsiveness. Text-based agents can tolerate seconds of retrieval time; robots operating at ${\sim}1$\,Hz action frequency cannot.
-
-\textbf{Compression requirement.} Raw sensor data must be translated into language, then progressively compressed and abstracted to remain useful over long time horizons.
-
-These constraints suggest that naive approaches such as appending all observations to the context window, or flat vector retrieval over unprocessed data will fail at scale. A more structured approach may be necessary, but this has not been empirically validated.
+LLM-controlled robots selecting actions directly from sensor inputs require memory for extended horizons. Without it, they cannot recall observations, learn from failures, or build persistent world models. Recent LLM memory architectures (MemGPT, Reflexion, Generative Agents) are designed for text-native environments at human speeds. Conversely, robotic systems face fundamentally different constraints: \textbf{Sensor modality} (high-frequency, non-text data streams require continuous processing); \textbf{Strict latency} (memory retrieval sits on the critical path of inference, where delays destabilize control loops); and \textbf{Context scaling} (accumulated long-horizon data must be progressively abstracted and pruned to prevent token overflow). Consequently, naive approaches—appending observations in text or using flat vector retrieval over unprocessed data—fail at scale. A structured approach is necessary but remains empirically unvalidated.
 
 \section{Related Work}
 
-\textbf{LLM agent memory.} MemGPT \cite{packer2023memgpt} introduces hierarchical memory management for LLM agents with explicit memory tiers. Generative Agents \cite{park2023generative} uses a retrieval-based memory with reflection. Reflexion \cite{shinn2023reflexion} stores verbal feedback for self-improvement. These systems operate on text observations and do not address sensor-to-language translation or real-time latency constraints.
-
-\textbf{Memory for LLM-controlled robots.} Recent work has begun integrating memory into LLM-controlled robots. Embodied-RAG \cite{xie2024embodiedrag} structures robot memory as a semantic forest with fixed abstraction levels for navigation and language generation across kilometer-scale environments. PragmaBot \cite{pragmabot2025} uses dual short-term and long-term memory with RAG for cross-task transfer. SayCan \cite{ahn2022saycan} and TypeFly \cite{chen2023typefly} use LLMs for robot planning but do not incorporate persistent memory. STaR \cite{star2025} introduces periodic VLM captioning for robot observation but does not address memory consolidation or retrieval. Critically, all of these systems use write-once memory: observations are stored and retrieved but never consolidated, summarized, or pruned. As the memory store grows, retrieval quality degrades and token budgets are consumed by redundant or stale information. Furthermore, each system hardcodes a specific memory architecture, making controlled comparison across strategies impossible within a single framework.
-
-\textbf{Our positioning.} typemem decouples memory \emph{policy} (how to observe, consolidate, and inject) from memory \emph{storage}, enabling prior approaches to be expressed as configurations of the same interface---Embodied-RAG as hierarchical observation with tree-structured injection, PragmaBot as reflective observation with dual-tier injection---and then compared against strategies that include active consolidation. Our empirical study directly tests whether consolidation provides measurable benefits as memory scales, a question none of these systems have addressed.
+\textbf{LLM agent memory} systems (MemGPT \cite{packer2023memgpt}, Generative Agents \cite{park2023generative}, Reflexion \cite{shinn2023reflexion}) operate purely on text, ignoring sensor translation and real-time latency. \textbf{Embodied memory} integrates semantic forests (Embodied-RAG \cite{xie2024embodiedrag}), dual-tier RAG (PragmaBot \cite{pragmabot2025}), or VLM captioning (STaR \cite{star2025}), while others plan without memory \cite{ahn2022saycan, chen2023typefly}. Critically, these rely on \textit{write-once} memory: observations are stored but never consolidated or pruned. As memory scales, retrieval degrades drastically and token budgets are depleted by stale data. Moreover, hardcoded architectures prevent controlled strategy comparisons. \textbf{Our positioning:} \textit{typemem} decouples memory \emph{policy} from \emph{storage}. This unifies prior approaches under one interface—expressing Embodied-RAG as hierarchical observation and PragmaBot as dual-tier injection—enabling direct comparison against active consolidation strategies to test if consolidation yields measurable scaling benefits.
 
 \section{Approach}
 
-We introduce \textbf{typemem}, a minimal abstract framework for robot memory that decomposes memory management into three function types operating over a generic vector store:
-
-\textbf{Observation functions} run in the background, converting raw sensor data into natural language memories stored in the database.
-%
-\textbf{Consolidation functions} run in the background, reading existing memories and creating summaries, extracting patterns, or pruning redundant entries---often using LLM calls for reasoning-heavy operations.
-%
-\textbf{Injection functions} are called synchronously before each LLM inference, searching memory and selecting the most relevant items to include in the prompt within a token budget.
-
-The memory store interface is deliberately minimal (add, search, delete, update) with no built-in opinion on tiers, retention, or linking. All organizational policy lives in the functions themselves, enabling controlled ablation.
-
-A key feature is \textbf{LLM-assisted function generation}: given a natural language description of a robot's personality and use case, the system generates starter implementations (Python code for deterministic operations, LLM prompts for reasoning tasks) that users can review and refine.
+We introduce \textbf{typemem}, an abstract framework decomposing robot memory into three functions over a minimal vector store. \textbf{Observation} runs continuously, converting raw sensor data into natural language memories. \textbf{Consolidation} runs asynchronously, utilizing LLM reasoning to summarize, extract patterns, and prune redundancies. \textbf{Injection} runs synchronously before inference, searching and selecting relevant items within a token budget. By keeping the store unopinionated on retention or linking, all policy lives in these functions, enabling clean ablation. Furthermore, \textbf{LLM-assisted function generation} translates natural language descriptions of a robot's use case into starter Python code and prompts for these functions.
 
 \section{Experimental Plan}
 
-We compare three strategies, all implemented as instances of the same typemem interface:
+We compare four strategies within \textit{typemem}: \textbf{(1) Full context}, appending raw text up to the token limit with simple FIFO eviction; \textbf{(2) Context compaction}, triggering LLM-based summarization only when out of context space; \textbf{(3) Monolithic RAG}, embedding and storing observations without consolidation for top-$k$ cosine similarity retrieval (KNN); and \textbf{(4) Tiered memory (our proposed approach)}, utilizing active, continuous LLM-generated observation, consolidation, and injection functions. 
 
-\begin{itemize}[nosep, leftmargin=1.5em]
-    \item \textbf{Full context.} Observations appended as raw text, no consolidation, inject everything up to the token limit.
-    \item \textbf{Monolithic RAG.} Observations embedded and stored, no consolidation, top-$k$ cosine retrieval at injection.
-    \item \textbf{Tiered memory (ours).} LLM-generated observation, consolidation, and injection functions with structured memory organization.
-\end{itemize}
+\textbf{Evaluation:} \textit{Data generation:} We will collect a continuous offline benchmark by physically patrolling a Unitree Go2 robot dog to gather observation data. \textit{Metrics:} We will evaluate retrieval accuracy and latency (injection time and consolidation overhead) across varying memory scales (100 to 100K entries), measuring performance against manually labeled, ground-truth decision points. \textit{Stretch goal:} Deploying all strategies on the physical quadruped via TypeGo to evaluate real-world task completion and decision quality. 
 
-\subsection{Evaluation}
 
-\textbf{Latency benchmarks.} Measure injection time and consolidation overhead across memory store sizes (100 to 100K entries) for all three strategies.
-
-\textbf{Synthetic benchmarks.} Scripted robot observation streams (e.g., ``patrol a building for 1 hour'') with ground-truth retrieval questions at decision points. Metrics: retrieval precision/recall, token efficiency, task-relevant information coverage.
-
-\textbf{Real robot evaluation (stretch goal).} Deploy all three strategies on a Unitree Go2 quadruped running identical navigation and interaction tasks via the TypeGo platform. Measure task completion rate and decision quality.
-
+\newpage
 \bibliographystyle{plain}
 \begin{thebibliography}{10}
 
@@ -124,5 +93,8 @@ A pragmatist robot: Learning to plan tasks by experiencing the real world.
 \url{https://arxiv.org/abs/2507.16713}
 
 \end{thebibliography}
+
+\section*{AI Usage Statement}
+AI tools are used to only help the writing of this document. Google Gemini was used to proof read and cut lengths of the proposal.
 
 \end{document}
