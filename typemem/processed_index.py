@@ -42,5 +42,6 @@ class ProcessedIndex:
             self._data[plugin_name] &= live_ids
 
     def save(self) -> None:
+        os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
         with open(self._path, "w") as f:
-            json.dump({k: sorted(v) for k, v in self._data.items()}, f)
+            json.dump({k: list(v) for k, v in self._data.items()}, f)

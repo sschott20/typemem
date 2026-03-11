@@ -11,41 +11,38 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-_ENCODER = None
+def _detect_encoder():
+    try:
+        import cv2
+        return "cv2"
+    except ImportError:
+        return "pil"
+
+_ENCODER = _detect_encoder()
+
 
 def _encode_jpeg(frame: np.ndarray) -> bytes:
-    global _ENCODER
-    if _ENCODER is None:
-        try:
-            import cv2
-            _ENCODER = "cv2"
-        except ImportError:
-            _ENCODER = "pil"
-
     if _ENCODER == "cv2":
         import cv2
         _, buf = cv2.imencode(".jpg", frame)
         return buf.tobytes()
-    else:
-        from PIL import Image
-        import io
-        img = Image.fromarray(frame)
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG")
-        return buf.getvalue()
+    from PIL import Image
+    import io
+    img = Image.fromarray(frame)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
 
 
 def _decode_jpeg(data: bytes) -> np.ndarray:
-    global _ENCODER
     if _ENCODER == "cv2":
         import cv2
         arr = np.frombuffer(data, dtype=np.uint8)
         return cv2.imdecode(arr, cv2.IMREAD_COLOR)
-    else:
-        from PIL import Image
-        import io
-        img = Image.open(io.BytesIO(data))
-        return np.array(img)
+    from PIL import Image
+    import io
+    img = Image.open(io.BytesIO(data))
+    return np.array(img)
 
 
 class FrameStore:
@@ -96,8 +93,10 @@ class FrameStore:
                 if meta.get("timestamp", 0) < cutoff:
                     frame_id = meta["frame_id"]
                     img_path = os.path.join(self._store_dir, f"{frame_id}.jpg")
-                    if os.path.exists(img_path):
+                    try:
                         os.remove(img_path)
+                    except FileNotFoundError:
+                        pass
                     os.remove(meta_path)
                     removed += 1
             except Exception as e:

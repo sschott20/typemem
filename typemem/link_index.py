@@ -29,10 +29,9 @@ class LinkIndex:
         self._links[id_b].discard(id_a)
 
     def remove_node(self, node_id: str):
-        neighbors = set(self._links.get(node_id, set()))
+        neighbors = self._links.pop(node_id, set())
         for neighbor in neighbors:
             self._links[neighbor].discard(node_id)
-        self._links.pop(node_id, None)
 
     def get_links(self, node_id: str) -> Set[str]:
         return set(self._links.get(node_id, set()))

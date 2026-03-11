@@ -93,12 +93,13 @@ class MemoryManager:
         return result_ids
 
     def _dedup_check(self, item: MemoryItem) -> Optional[str]:
-        if item.tier != MemoryTier.M0 and self._collection.count() > 0:
-            existing_id = self._find_near_duplicate(item)
-            if existing_id is not None:
-                self._update_timestamp(existing_id, item.timestamp)
-                logger.debug("Memory dedup: [%s] matched existing %s", item.tier.label, existing_id[:8])
-                return existing_id
+        if item.tier == MemoryTier.M0:
+            return None
+        existing_id = self._find_near_duplicate(item)
+        if existing_id is not None:
+            self._update_timestamp(existing_id, item.timestamp)
+            logger.debug("Memory dedup: [%s] matched existing %s", item.tier.label, existing_id[:8])
+            return existing_id
         return None
 
     def _post_insert(self, item: MemoryItem, auto_link: bool, collection_count: Optional[int] = None):
@@ -147,15 +148,13 @@ class MemoryManager:
             else:
                 where = {"tier": {"$in": [t.label for t in tiers]}}
 
-        max_results = self._collection.count()
-        if max_results == 0:
+        if self._collection.count() == 0:
             return [], []
-        actual_n = min(n_results, max_results)
 
         try:
             result = self._collection.query(
                 query_texts=[query],
-                n_results=actual_n,
+                n_results=n_results,
                 where=where,
                 include=["documents", "metadatas", "distances"],
             )
@@ -255,11 +254,7 @@ class MemoryManager:
 
     def _update_timestamp(self, item_id: str, new_timestamp: float):
         try:
-            result = self._collection.get(ids=[item_id], include=["metadatas"])
-            if result["ids"]:
-                meta = result["metadatas"][0]
-                meta["timestamp"] = new_timestamp
-                self._collection.update(ids=[item_id], metadatas=[meta])
+            self._collection.update(ids=[item_id], metadatas=[{"timestamp": new_timestamp}])
         except Exception as e:
             logger.error("Failed to update timestamp for %s: %s", item_id, e)
 

@@ -88,4 +88,5 @@ class SessionRecorder:
         return events
 
     def replay(self) -> Iterator[RecordedEvent]:
+        yield from self.load_events()
         yield from self._events
