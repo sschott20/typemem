@@ -14,6 +14,9 @@ from typemem.frame_store import FrameStore
 from typemem.plugins.base import ObservationPlugin, ConsolidationPlugin
 from typemem.plugins.runner import ObservationRunner
 from typemem.plugins.loader import PluginLoader
+from typemem.plugins.text_summary import TextSummaryPlugin
+from typemem.plugins.llm_summary import LLMSummaryPlugin
+from typemem.llm import LLMCallable, make_anthropic_llm
 from typemem.config import MemoryConfig, system_from_config
 from typemem import events
 
