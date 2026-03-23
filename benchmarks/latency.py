@@ -6,9 +6,9 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 
-from typemem.baselines import make_full_context, make_monolithic_rag, make_tiered_memory
-from typemem.chromadb_store import ChromaDBStore
-from typemem.system import MemorySystem
+from typemem.injector import MemoryInjector, StageConfig
+from typemem.memory_item import MemoryItem, MemoryTier, MemoryType
+from typemem.memory_manager import MemoryManager
 
 
 def _percentile(values: list[float], p: float) -> float:
@@ -84,15 +84,29 @@ _SAMPLE_QUERIES = [
 ]
 
 
-def _seed_store(store: ChromaDBStore, start: int, end: int, batch_size: int = 200) -> None:
+@dataclass
+class _LatencyStrategy:
+    name: str
+    inject_tiers: list[MemoryTier]
+    inject_recency_weight: float
+    inject_n_results: int
+    dump_all: bool = False
+
+
+def _seed_store(manager: MemoryManager, start: int, end: int, batch_size: int = 200) -> None:
     """Add memories [start, end) to the store using batch inserts."""
     for b in range(start, end, batch_size):
         b_end = min(b + batch_size, end)
-        docs = [
-            f"[t={i}] {_SAMPLE_OBSERVATIONS[i % len(_SAMPLE_OBSERVATIONS)]} (observation #{i})"
+        items = [
+            MemoryItem(
+                document=f"[t={i}] {_SAMPLE_OBSERVATIONS[i % len(_SAMPLE_OBSERVATIONS)]} (observation #{i})",
+                tier=MemoryTier.M1,
+                memory_type=MemoryType.OBSERVATION,
+                robot_id="bench",
+            )
             for i in range(b, b_end)
         ]
-        store.add_batch(docs)
+        manager.add_batch(items, auto_link=False)
 
 
 def run_latency_benchmark(
@@ -104,35 +118,45 @@ def run_latency_benchmark(
         sizes = [100, 500, 1000, 5000, 10000]
 
     strategies = [
-        ("full_context", make_full_context, "dump"),
-        ("monolithic_rag", make_monolithic_rag, "topk"),
-        ("tiered_memory", make_tiered_memory, "tiered"),
+        _LatencyStrategy("full_context", [MemoryTier.M1], 0.0, 100, dump_all=True),
+        _LatencyStrategy("monolithic_rag", [MemoryTier.M1], 0.0, 10),
+        _LatencyStrategy("tiered_memory", [MemoryTier.M1, MemoryTier.M2], 0.3, 10),
     ]
 
     all_results: list[LatencyResult] = []
 
-    for strategy_name, factory, injection_name in strategies:
+    for strat in strategies:
         with tempfile.TemporaryDirectory() as tmpdir:
-            store = ChromaDBStore(persist_dir=tmpdir)
-            system = factory(store)
-            prev_size = 0
+            manager = MemoryManager(persist_dir=tmpdir, robot_id="bench")
+            injector = MemoryInjector(manager, cache_ttl=0)
+            injector.set_stage_config("bench", StageConfig(
+                tiers=strat.inject_tiers,
+                max_tokens=400,
+                n_results=strat.inject_n_results,
+                recency_weight=strat.inject_recency_weight,
+            ))
 
+            prev_size = 0
             for size in sorted(sizes):
-                # Grow incrementally instead of re-seeding from scratch
-                _seed_store(store, prev_size, size)
+                _seed_store(manager, prev_size, size)
                 prev_size = size
 
                 result = LatencyResult(
-                    strategy_name=strategy_name,
+                    strategy_name=strat.name,
                     store_size=size,
                 )
 
                 # Measure observation latencies
                 for i in range(n_queries):
-                    obs = _SAMPLE_OBSERVATIONS[i % len(_SAMPLE_OBSERVATIONS)]
-                    data = {"text": f"[bench] {obs} (latency test #{i})"}
+                    obs_text = _SAMPLE_OBSERVATIONS[i % len(_SAMPLE_OBSERVATIONS)]
+                    item = MemoryItem(
+                        document=f"[bench] {obs_text} (latency test #{i})",
+                        tier=MemoryTier.M1,
+                        memory_type=MemoryType.OBSERVATION,
+                        robot_id="bench",
+                    )
                     t0 = time.perf_counter()
-                    system.observe(data)
+                    manager.add(item, auto_link=False)
                     t1 = time.perf_counter()
                     result.observation_latencies_ms.append((t1 - t0) * 1000.0)
 
@@ -140,7 +164,11 @@ def run_latency_benchmark(
                 for i in range(n_queries):
                     query = _SAMPLE_QUERIES[i % len(_SAMPLE_QUERIES)]
                     t0 = time.perf_counter()
-                    system.inject(injection_name, query, token_budget=400)
+                    if strat.dump_all:
+                        items = manager.get_by_tier(MemoryTier.M1)
+                        "\n".join(f"[{it.tier}] {it.document}" for it in items)
+                    else:
+                        injector.inject("bench", query)
                     t1 = time.perf_counter()
                     result.injection_latencies_ms.append((t1 - t0) * 1000.0)
 

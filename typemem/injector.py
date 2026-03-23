@@ -36,6 +36,12 @@ class MemoryInjector:
         self._cache_ttl = cache_ttl
         self._cache: Dict[Tuple[str, str], Tuple[float, str]] = {}
         self._max_cache_size = 100
+        self._last_results: List[Dict] = []
+
+    @property
+    def last_results(self) -> List[Dict]:
+        """Detailed results from the most recent inject() call."""
+        return list(self._last_results)
 
     def set_recorder(self, recorder):
         self._recorder = recorder
@@ -43,11 +49,13 @@ class MemoryInjector:
     def set_stage_config(self, stage: str, config: StageConfig):
         self._configs[stage] = config
 
-    def inject(self, stage: str, query: str) -> str:
+    def inject(self, stage: str, query: str, max_tokens: Optional[int] = None) -> str:
         config = self._configs.get(stage)
         if config is None:
             logger.warning("No injection config for stage '%s'", stage)
             return ""
+
+        effective_max_tokens = max_tokens if max_tokens is not None else config.max_tokens
 
         cache_key = (stage, query)
         now = time.time()
@@ -82,12 +90,18 @@ class MemoryInjector:
         for item, score in scored:
             line = f"[{item.tier}] {item.document}"
             line_tokens = len(line) // 4
-            if token_count + line_tokens > config.max_tokens:
+            if token_count + line_tokens > effective_max_tokens:
                 break
             lines.append(line)
             selected_ids.append(item.id)
             selected_scores.append(round(score, 4))
             token_count += line_tokens
+
+        self._last_results = [
+            {"id": selected_ids[i], "text": lines[i], "tier": scored[i][0].tier.label,
+             "score": selected_scores[i]}
+            for i in range(len(selected_ids))
+        ]
 
         if self._recorder and selected_ids:
             self._recorder.record_injection(
