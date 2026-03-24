@@ -177,6 +177,23 @@ def run_latency_benchmark(
     return all_results
 
 
+def latency_results_to_json(results: list[LatencyResult]) -> list[dict]:
+    """Convert latency results to JSON-serializable dicts."""
+    return [
+        {
+            "strategy": r.strategy_name,
+            "store_size": r.store_size,
+            "obs_p50": round(r.obs_p50, 2),
+            "obs_p99": round(r.obs_p99, 2),
+            "inj_p50": round(r.inj_p50, 2),
+            "inj_p99": round(r.inj_p99, 2),
+            "observation_latencies_ms": [round(v, 2) for v in r.observation_latencies_ms],
+            "injection_latencies_ms": [round(v, 2) for v in r.injection_latencies_ms],
+        }
+        for r in results
+    ]
+
+
 def print_latency_results(results: list[LatencyResult]) -> None:
     """Pretty-print a latency comparison table."""
     header = (
@@ -197,5 +214,15 @@ def print_latency_results(results: list[LatencyResult]) -> None:
 
 
 if __name__ == "__main__":
+    import json
+    import sys
+    from pathlib import Path
+
     results = run_latency_benchmark(sizes=[100, 500, 1000], n_queries=10)
     print_latency_results(results)
+
+    if "--json" in sys.argv:
+        out_path = Path("latency_results.json")
+        with open(out_path, "w") as f:
+            json.dump(latency_results_to_json(results), f, indent=2)
+        print(f"\nResults saved to {out_path}")
