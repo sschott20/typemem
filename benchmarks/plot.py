@@ -8,8 +8,10 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -162,3 +164,54 @@ def plot_latency_distribution(data: list[dict], output_dir: str, store_size: int
     ax.set_ylabel("Injection Latency (ms)")
 
     save_fig(fig, os.path.join(output_dir, "latency_distribution"))
+
+
+def main(argv: list[str] | None = None) -> None:
+    """CLI entry point for generating benchmark plots."""
+    parser = argparse.ArgumentParser(description="Generate typemem benchmark figures")
+    parser.add_argument("--synthetic", type=str, help="Path to benchmark_results.json")
+    parser.add_argument("--scaling", type=str, help="Path to scaling_results.json")
+    parser.add_argument("--latency", type=str, help="Path to latency_results.json")
+    parser.add_argument("--all", action="store_true",
+                        help="Generate all plots (expects benchmark_results.json, "
+                             "scaling_results.json, latency_results.json in cwd)")
+    parser.add_argument("--output-dir", type=str, default="figures",
+                        help="Output directory for figures (default: figures/)")
+    parser.add_argument("--scaling-mode", type=str, default="noise_padding",
+                        help="Scaling plot mode: noise_padding or replay_fraction")
+
+    args = parser.parse_args(argv)
+    out = args.output_dir
+
+    if args.all:
+        args.synthetic = args.synthetic or "benchmark_results.json"
+        args.scaling = args.scaling or "scaling_results.json"
+        args.latency = args.latency or "latency_results.json"
+
+    if not any([args.synthetic, args.scaling, args.latency]):
+        parser.print_help()
+        return
+
+    if args.synthetic:
+        with open(args.synthetic) as f:
+            data = json.load(f)
+        plot_strategy_comparison(data, out)
+        print(f"  strategy_comparison.pdf/png -> {out}/")
+
+    if args.scaling:
+        with open(args.scaling) as f:
+            data = json.load(f)
+        plot_quality_vs_size(data, out, mode=args.scaling_mode)
+        print(f"  quality_vs_size.pdf/png -> {out}/")
+
+    if args.latency:
+        with open(args.latency) as f:
+            data = json.load(f)
+        plot_latency_vs_size(data, out)
+        plot_latency_distribution(data, out)
+        print(f"  latency_vs_size.pdf/png -> {out}/")
+        print(f"  latency_distribution.pdf/png -> {out}/")
+
+
+if __name__ == "__main__":
+    main()

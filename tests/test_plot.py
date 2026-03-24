@@ -147,7 +147,7 @@ class TestLatencyVsSize:
             assert os.path.exists(os.path.join(tmpdir, "latency_vs_size.png"))
 
 
-from benchmarks.plot import plot_latency_distribution
+from benchmarks.plot import plot_latency_distribution, main as plot_main
 
 
 class TestLatencyDistribution:
@@ -179,3 +179,28 @@ class TestLatencyDistribution:
             plot_latency_distribution(data, tmpdir)
             assert os.path.exists(os.path.join(tmpdir, "latency_distribution.pdf"))
             assert os.path.exists(os.path.join(tmpdir, "latency_distribution.png"))
+
+
+class TestPlotCLI:
+    def test_synthetic_flag(self):
+        import matplotlib
+        matplotlib.use("Agg")
+        data = [
+            {
+                "strategy": "full_context",
+                "scenario": "kitchen_patrol",
+                "total_memories": 7,
+                "avg_precision": 0.67,
+                "avg_injection_latency_ms": 1.5,
+                "avg_token_count": 200.0,
+                "avg_llm_judge_score": None,
+                "queries": [],
+            },
+        ]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "bench.json")
+            with open(json_path, "w") as f:
+                json.dump(data, f)
+            out_dir = os.path.join(tmpdir, "figs")
+            plot_main(["--synthetic", json_path, "--output-dir", out_dir])
+            assert os.path.exists(os.path.join(out_dir, "strategy_comparison.pdf"))
