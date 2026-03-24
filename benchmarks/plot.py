@@ -11,9 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from collections import defaultdict
-from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
@@ -73,7 +71,8 @@ def plot_quality_vs_size(data: list[dict], output_dir: str, mode: str = "noise_p
 
     by_strategy: dict[str, list[tuple[int, float]]] = defaultdict(list)
     for entry in filtered:
-        metric = entry.get("avg_llm_judge_score") or entry["avg_precision"]
+        score = entry.get("avg_llm_judge_score")
+        metric = score if score is not None else entry["avg_precision"]
         by_strategy[entry["strategy"]].append((entry["store_size"], metric))
 
     fig, ax = plt.subplots(figsize=(FIG_WIDTH, FIG_HEIGHT))
@@ -193,24 +192,33 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.synthetic:
-        with open(args.synthetic) as f:
-            data = json.load(f)
-        plot_strategy_comparison(data, out)
-        print(f"  strategy_comparison.pdf/png -> {out}/")
+        if not os.path.exists(args.synthetic):
+            print(f"  Skipping synthetic: {args.synthetic} not found")
+        else:
+            with open(args.synthetic) as f:
+                data = json.load(f)
+            plot_strategy_comparison(data, out)
+            print(f"  strategy_comparison.pdf/png -> {out}/")
 
     if args.scaling:
-        with open(args.scaling) as f:
-            data = json.load(f)
-        plot_quality_vs_size(data, out, mode=args.scaling_mode)
-        print(f"  quality_vs_size.pdf/png -> {out}/")
+        if not os.path.exists(args.scaling):
+            print(f"  Skipping scaling: {args.scaling} not found")
+        else:
+            with open(args.scaling) as f:
+                data = json.load(f)
+            plot_quality_vs_size(data, out, mode=args.scaling_mode)
+            print(f"  quality_vs_size.pdf/png -> {out}/")
 
     if args.latency:
-        with open(args.latency) as f:
-            data = json.load(f)
-        plot_latency_vs_size(data, out)
-        plot_latency_distribution(data, out)
-        print(f"  latency_vs_size.pdf/png -> {out}/")
-        print(f"  latency_distribution.pdf/png -> {out}/")
+        if not os.path.exists(args.latency):
+            print(f"  Skipping latency: {args.latency} not found")
+        else:
+            with open(args.latency) as f:
+                data = json.load(f)
+            plot_latency_vs_size(data, out)
+            plot_latency_distribution(data, out)
+            print(f"  latency_vs_size.pdf/png -> {out}/")
+            print(f"  latency_distribution.pdf/png -> {out}/")
 
 
 if __name__ == "__main__":

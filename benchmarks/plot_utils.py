@@ -81,7 +81,7 @@ def get_color(strategy: str) -> str:
     return STRATEGY_COLORS.get(strategy, "#333333")
 
 
-def get_linestyle(strategy: str) -> str:
+def get_linestyle(strategy: str) -> str | tuple:
     return STRATEGY_LINESTYLES.get(strategy, "solid")
 
 
