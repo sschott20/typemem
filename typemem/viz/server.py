@@ -436,6 +436,10 @@ class VizServer:
                     result_count=len(results),
                     duration_ms=round(duration_ms, 1))
 
+    def notify_llm_request(self, prompt: str, response: str, model: str = ""):
+        """Notify that an LLM request was made."""
+        self.notify("llm_request", prompt=prompt, response=response, model=model)
+
     def start(self):
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
