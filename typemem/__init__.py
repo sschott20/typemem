@@ -24,15 +24,16 @@ from typemem import events
 def create_memory_system(
     persist_dir: str,
     robot_id: str,
+    plugins: Optional[List[Union[ObservationPlugin, ConsolidationPlugin]]] = None,
     recording_path: Optional[str] = None,
     frame_store_dir: Optional[str] = None,
-    disabled_plugins: Optional[List[str]] = None,
-    extra_plugins: Optional[List[Union[ObservationPlugin, ConsolidationPlugin]]] = None,
-    obs_package: Optional[str] = None,
-    consol_package: Optional[str] = None,
     config: Optional[MemoryConfig] = None,
 ):
     """Create a complete memory system with all components wired together.
+
+    Args:
+        plugins: Explicit list of observation and consolidation plugins.
+                 None means no plugins are loaded (no auto-discovery).
 
     Returns:
         Tuple of (MemoryManager, ConsolidationEngine, MemoryInjector,
@@ -48,29 +49,15 @@ def create_memory_system(
         dedup_distance_threshold=cfg.dedup_distance_threshold,
     )
 
-    # Auto-discover plugins from specified packages
-    obs_plugins, consol_plugins = PluginLoader.discover(
-        obs_package=obs_package,
-        consol_package=consol_package,
-        disabled=disabled_plugins or [],
-    )
-
-    # Add any extra plugins
-    for p in (extra_plugins or []):
-        if isinstance(p, ObservationPlugin):
-            obs_plugins.append(p)
-        elif isinstance(p, ConsolidationPlugin):
-            consol_plugins.append(p)
-
-    # Wire up observation runner
+    # Sort plugins by type
     obs_runner = ObservationRunner()
-    for p in obs_plugins:
-        obs_runner.register(p)
-
-    # Wire up consolidation engine
     engine = ConsolidationEngine(manager, expiry_interval=cfg.expiry_interval)
-    for p in consol_plugins:
-        engine.register_strategy(p)
+
+    for p in (plugins or []):
+        if isinstance(p, ObservationPlugin):
+            obs_runner.register(p)
+        elif isinstance(p, ConsolidationPlugin):
+            engine.register_strategy(p)
 
     injector = MemoryInjector(manager, cache_ttl=cfg.injector_cache_ttl)
 

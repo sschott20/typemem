@@ -80,9 +80,9 @@ class SimpleM1toM2(ConsolidationPlugin):
 
 @pytest.fixture(autouse=True)
 def reset_events():
-    events._registry.clear()
+    events.reset()
     yield
-    events._registry.clear()
+    events.reset()
 
 
 class TestIntegration:
@@ -91,7 +91,7 @@ class TestIntegration:
         manager, engine, injector, recorder, runner, fs = create_memory_system(
             persist_dir=str(tmp_path / "chroma"),
             robot_id="test_robot",
-            extra_plugins=[EventDrivenObserver(), SimpleM1toM2()],
+            plugins=[EventDrivenObserver(), SimpleM1toM2()],
         )
 
         # Start observation runner
@@ -143,3 +143,25 @@ class TestIntegration:
         manager.add(item)
         loaded = fs.load(fid)
         assert loaded is not None
+
+    def test_create_with_explicit_plugin_list(self, tmp_path):
+        from typemem.plugins.consolidation import M1ToM2Strategy
+        from typemem.plugins.text_summary import TextSummaryPlugin
+
+        plugins = [TextSummaryPlugin(batch_size=3, interval=0), M1ToM2Strategy()]
+
+        manager, engine, injector, recorder, obs_runner, frame_store = create_memory_system(
+            persist_dir=str(tmp_path / "chroma"),
+            robot_id="test",
+            plugins=plugins,
+        )
+        assert "M1ToM2" in engine.list_strategies()
+        assert manager is not None
+
+    def test_create_with_no_plugins(self, tmp_path):
+        manager, engine, injector, recorder, obs_runner, frame_store = create_memory_system(
+            persist_dir=str(tmp_path / "chroma"),
+            robot_id="test",
+        )
+        assert engine.list_strategies() == []
+        assert obs_runner.list_plugins() == []
