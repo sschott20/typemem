@@ -341,6 +341,14 @@ class VizHandler(BaseHTTPRequestHandler):
                 "presets": presets,
             })
 
+        elif path == "/api/live_sources":
+            injector = getattr(self.server, "_injector", None)
+            if injector and hasattr(injector, "get_live_sources"):
+                sources = injector.get_live_sources()
+            else:
+                sources = {}
+            self._json_response(sources)
+
         else:
             self.send_error(404)
 
@@ -408,6 +416,7 @@ class VizServer:
         self._server = _ThreadedHTTPServer(("127.0.0.1", port), VizHandler)
         self._server.manager = manager
         self._server.event_bus = self.event_bus
+        self._server._injector = injector
         self._server.db_presets = db_presets if db_presets is not None else dict(_DEFAULT_DB_PRESETS)
         self.port = self._server.server_address[1]
         self._thread: Optional[threading.Thread] = None

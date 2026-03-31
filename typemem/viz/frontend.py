@@ -62,6 +62,21 @@ html, body {
   border-bottom: 1px solid var(--border);
 }
 .stats-dashboard.open { display: block; }
+.live-panel {
+  padding: 8px 20px; background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 12px;
+  display: flex; align-items: center; gap: 12px;
+}
+.live-indicator {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #3fb950; animation: live-pulse 2s infinite;
+  flex-shrink: 0;
+}
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.live-label { color: var(--text-secondary); font-size: 11px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.live-content { color: var(--text); white-space: pre; overflow-x: auto; flex: 1; }
+.live-panel.empty { display: none; }
 .stats-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .chart-section h3 {
   font-size: 11px; font-weight: 600; text-transform: uppercase;
@@ -245,6 +260,12 @@ html, body {
         <div class="timeline-chart" id="timeline-chart"></div>
       </div>
     </div>
+  </div>
+
+  <div class="live-panel empty" id="live-panel">
+    <span class="live-indicator"></span>
+    <span class="live-label">System Observation</span>
+    <span class="live-content" id="live-content"></span>
   </div>
 
   <div class="panels">
@@ -637,6 +658,25 @@ html, body {
     });
     opsPanel.innerHTML = html;
   }
+
+  // Live sources polling
+  async function pollLiveSources() {
+    try {
+      const res = await fetch('/api/live_sources');
+      const data = await res.json();
+      const panel = document.getElementById('live-panel');
+      const content = document.getElementById('live-content');
+      const values = Object.values(data);
+      if (values.length > 0) {
+        content.textContent = values.join('\n');
+        panel.classList.remove('empty');
+      } else {
+        panel.classList.add('empty');
+      }
+    } catch (e) {}
+  }
+  setInterval(pollLiveSources, 1000);
+  pollLiveSources();
 
   // SSE
   function connectSSE() {
