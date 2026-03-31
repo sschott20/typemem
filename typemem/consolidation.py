@@ -20,6 +20,7 @@ class ConsolidationEngine:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._recorder = None
+        self._on_consolidation = None  # callback: (strategy_name, new_ids) -> None
         self._expiry_interval = expiry_interval
         self._last_expiry: float = 0.0
         self._processed_index = ProcessedIndex(
@@ -28,6 +29,10 @@ class ConsolidationEngine:
 
     def set_recorder(self, recorder):
         self._recorder = recorder
+
+    def set_on_consolidation(self, callback):
+        """Set a callback invoked after each strategy run: callback(name, new_ids)."""
+        self._on_consolidation = callback
 
     @property
     def processed_index(self) -> ProcessedIndex:
@@ -44,11 +49,17 @@ class ConsolidationEngine:
         for name, strategy in self._strategies.items():
             new_ids = strategy.run(self._manager, llm=llm, processed_index=self._processed_index)
             results[name] = new_ids
-            if self._recorder and new_ids:
-                for nid in new_ids:
-                    self._recorder.record_consolidation(
-                        strategy=name, source_ids=[], result_id=nid,
-                    )
+            if new_ids:
+                if self._recorder:
+                    for nid in new_ids:
+                        self._recorder.record_consolidation(
+                            strategy=name, source_ids=[], result_id=nid,
+                        )
+                if self._on_consolidation:
+                    try:
+                        self._on_consolidation(name, new_ids)
+                    except Exception:
+                        pass
         self._maybe_expire()
         return results
 
@@ -72,7 +83,18 @@ class ConsolidationEngine:
                 last = last_run.get(name, 0)
                 if now - last >= strategy.interval_seconds:
                     try:
-                        strategy.run(self._manager, llm=llm, processed_index=self._processed_index)
+                        new_ids = strategy.run(self._manager, llm=llm, processed_index=self._processed_index)
+                        if new_ids:
+                            if self._recorder:
+                                for nid in new_ids:
+                                    self._recorder.record_consolidation(
+                                        strategy=name, source_ids=[], result_id=nid,
+                                    )
+                            if self._on_consolidation:
+                                try:
+                                    self._on_consolidation(name, new_ids)
+                                except Exception:
+                                    pass
                     except Exception as e:
                         logger.error("Strategy '%s' failed: %s", name, e)
                     last_run[name] = now

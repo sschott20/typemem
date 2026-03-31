@@ -34,6 +34,7 @@ class MemoryInjector:
         self._manager = manager
         self._configs: Dict[str, StageConfig] = dict(DEFAULT_STAGE_CONFIGS)
         self._recorder = None
+        self._on_injection = None  # callback: (stage, query, context, results) -> None
         self._cache_ttl = cache_ttl
         self._cache: Dict[Tuple[str, str], Tuple[float, str]] = {}
         self._max_cache_size = 100
@@ -46,6 +47,10 @@ class MemoryInjector:
 
     def set_recorder(self, recorder):
         self._recorder = recorder
+
+    def set_on_injection(self, callback):
+        """Set a callback invoked after each inject(): callback(stage, query, context, results)."""
+        self._on_injection = callback
 
     def set_stage_config(self, stage: str, config: StageConfig):
         self._configs[stage] = config
@@ -128,6 +133,12 @@ class MemoryInjector:
             )
 
         result = "\n".join(pinned_lines + lines)
+
+        if self._on_injection and result:
+            try:
+                self._on_injection(stage, query, result, self._last_results)
+            except Exception:
+                pass
 
         self._cache[cache_key] = (now, result)
         if len(self._cache) > self._max_cache_size:
