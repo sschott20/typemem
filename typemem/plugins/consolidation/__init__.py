@@ -7,3 +7,4 @@ from typemem.plugins.consolidation.task_pattern_extractor import TaskPatternExtr
 from typemem.plugins.consolidation.knowledge_refinement import KnowledgeRefinement
 from typemem.plugins.consolidation.caption_activity import CaptionActivityConsolidator
 from typemem.plugins.consolidation.caption_spatial import CaptionSpatialConsolidator
+from typemem.plugins.consolidation.situation_summary import SituationSummaryPlugin
