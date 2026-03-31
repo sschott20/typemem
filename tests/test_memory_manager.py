@@ -142,6 +142,27 @@ class TestLinking:
         assert item1.id not in manager.links.get_links(item2.id)
 
 
+class TestGetBySource:
+    def test_returns_matching_items(self, manager):
+        manager.add(MemoryItem(document="a", tier=MemoryTier.M1, memory_type=MemoryType.OBSERVATION, robot_id="r1", source="alpha"))
+        manager.add(MemoryItem(document="b", tier=MemoryTier.M1, memory_type=MemoryType.OBSERVATION, robot_id="r1", source="beta"))
+        manager.add(MemoryItem(document="c", tier=MemoryTier.M1, memory_type=MemoryType.OBSERVATION, robot_id="r1", source="alpha"))
+        results = manager.get_by_source("alpha")
+        assert len(results) == 2
+        assert all(r.source == "alpha" for r in results)
+
+    def test_filters_by_tier(self, manager):
+        manager.add(MemoryItem(document="m1", tier=MemoryTier.M1, memory_type=MemoryType.OBSERVATION, robot_id="r1", source="x"))
+        manager.add(MemoryItem(document="m2", tier=MemoryTier.M2, memory_type=MemoryType.SUMMARY, robot_id="r1", source="x"))
+        results = manager.get_by_source("x", tier=MemoryTier.M1)
+        assert len(results) == 1
+        assert results[0].tier == MemoryTier.M1
+
+    def test_returns_empty_for_no_match(self, manager):
+        results = manager.get_by_source("nonexistent")
+        assert results == []
+
+
 class TestUpdateDocument:
     def test_update_document(self, manager):
         item = _make_item("original text")

@@ -216,6 +216,23 @@ class MemoryManager:
             ))
         return items
 
+    def get_by_source(self, source: str, tier: Optional[MemoryTier] = None) -> List[MemoryItem]:
+        """Return items matching a source metadata value, optionally filtered by tier."""
+        if tier is not None:
+            where = {"$and": [{"source": source}, {"tier": tier.label}]}
+        else:
+            where = {"source": source}
+        results = self._collection.get(
+            where=where,
+            include=["documents", "metadatas"],
+        )
+        items = []
+        for i, doc_id in enumerate(results["ids"]):
+            items.append(MemoryItem.from_chromadb(
+                doc_id, results["documents"][i], results["metadatas"][i],
+            ))
+        return items
+
     def count(self, tier: Optional[MemoryTier] = None) -> int:
         if tier is None:
             return self._collection.count()
