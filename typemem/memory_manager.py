@@ -34,9 +34,7 @@ class MemoryManager:
         self._link_distance_threshold = link_distance_threshold
         self._dedup_distance_threshold = dedup_distance_threshold
         self._client = chromadb.PersistentClient(path=persist_dir)
-        self._embedding_fn = ONNXMiniLM_L6_V2(
-            preferred_providers=["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
-        )
+        self._embedding_fn = ONNXMiniLM_L6_V2()
         self._collection = self._client.get_or_create_collection(
             name=collection_name,
             metadata={"hnsw:space": "cosine"},
