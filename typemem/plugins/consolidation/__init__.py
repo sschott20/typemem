@@ -8,3 +8,4 @@ from typemem.plugins.consolidation.knowledge_refinement import KnowledgeRefineme
 from typemem.plugins.consolidation.caption_activity import CaptionActivityConsolidator
 from typemem.plugins.consolidation.caption_spatial import CaptionSpatialConsolidator
 from typemem.plugins.consolidation.situation_summary import SituationSummaryPlugin
+from typemem.plugins.consolidation.behavioral_learning import BehavioralLearningPlugin
