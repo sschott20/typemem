@@ -76,3 +76,30 @@ class TestMemoryItem:
         a = MemoryItem(document="a", tier=MemoryTier.M0, memory_type=MemoryType.OBSERVATION, robot_id="r")
         b = MemoryItem(document="b", tier=MemoryTier.M0, memory_type=MemoryType.OBSERVATION, robot_id="r")
         assert a.id != b.id
+
+    def test_frame_ref_roundtrip(self):
+        item = MemoryItem(
+            document="Chair seen near kitchen",
+            tier=MemoryTier.M1,
+            memory_type=MemoryType.OBSERVATION,
+            robot_id="test",
+            frame_ref="f_abc123",
+        )
+        meta = item.to_metadata()
+        assert meta["frame_ref"] == "f_abc123"
+
+        reconstructed = MemoryItem.from_chromadb(
+            doc_id="test_id", document=item.document, metadata=meta
+        )
+        assert reconstructed.frame_ref == "f_abc123"
+
+    def test_frame_ref_none_by_default(self):
+        item = MemoryItem(
+            document="No frame",
+            tier=MemoryTier.M1,
+            memory_type=MemoryType.OBSERVATION,
+            robot_id="test",
+        )
+        assert item.frame_ref is None
+        meta = item.to_metadata()
+        assert "frame_ref" not in meta

@@ -43,6 +43,7 @@ class MemoryItem:
     task_id: Optional[int] = None
     keywords: str = ""
     source: str = ""
+    frame_ref: Optional[str] = None
     id: Optional[str] = field(default_factory=lambda: str(uuid.uuid4()))
 
     def to_metadata(self) -> Dict[str, Any]:
@@ -58,6 +59,8 @@ class MemoryItem:
             meta["waypoint"] = self.waypoint
         if self.task_id is not None:
             meta["task_id"] = self.task_id
+        if self.frame_ref is not None:
+            meta["frame_ref"] = self.frame_ref
         return meta
 
     @classmethod
@@ -73,4 +76,5 @@ class MemoryItem:
             task_id=metadata.get("task_id"),
             keywords=metadata.get("keywords", ""),
             source=metadata.get("source", ""),
+            frame_ref=metadata.get("frame_ref"),
         )
