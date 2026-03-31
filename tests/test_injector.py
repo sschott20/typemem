@@ -129,3 +129,78 @@ class TestPinnedInjection:
         result = injector.inject("S1", query="anything")
         # First pinned item always included even if it exceeds budget
         assert "x x" in result
+
+
+class TestLiveSources:
+    def test_register_and_get_live_sources(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        inj = MemoryInjector(manager, cache_ttl=0)
+        inj.register_live_source("obs", lambda: "Pose: (1.0, 2.0, 0.5)")
+        sources = inj.get_live_sources()
+        assert sources == {"obs": "Pose: (1.0, 2.0, 0.5)"}
+
+    def test_live_source_prepended_to_injection(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        manager.add(MemoryItem(
+            document="saw a cat earlier", tier=MemoryTier.M1,
+            memory_type=MemoryType.OBSERVATION, robot_id="test",
+        ))
+        inj = MemoryInjector(manager, cache_ttl=0)
+        inj.register_live_source("obs", lambda: "Detections: cat x1 (2.0m)")
+        inj.set_stage_config("S1", StageConfig(
+            tiers=[MemoryTier.M1], max_tokens=500,
+        ))
+        result = inj.inject("S1", "cat")
+        lines = result.strip().split("\n")
+        assert "Detections: cat x1 (2.0m)" in lines[0]
+        assert any("saw a cat earlier" in line for line in lines[1:])
+
+    def test_live_source_in_last_results(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        inj = MemoryInjector(manager, cache_ttl=0)
+        inj.register_live_source("obs", lambda: "Posture: STANDING")
+        inj.set_stage_config("S1", StageConfig(
+            tiers=[MemoryTier.M1], max_tokens=500,
+        ))
+        inj.inject("S1", "anything")
+        assert any(r.get("tier") == "live" for r in inj.last_results)
+
+    def test_live_source_bypasses_cache(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        call_count = {"n": 0}
+        def counter():
+            call_count["n"] += 1
+            return f"call {call_count['n']}"
+        inj = MemoryInjector(manager, cache_ttl=60)
+        inj.register_live_source("obs", counter)
+        inj.set_stage_config("S1", StageConfig(
+            tiers=[MemoryTier.M1], max_tokens=500,
+        ))
+        r1 = inj.inject("S1", "test")
+        r2 = inj.inject("S1", "test")
+        assert "call 1" in r1
+        assert "call 2" in r2
+
+    def test_live_source_empty_returns_excluded(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        inj = MemoryInjector(manager, cache_ttl=0)
+        inj.register_live_source("obs", lambda: "")
+        inj.set_stage_config("S1", StageConfig(
+            tiers=[MemoryTier.M1], max_tokens=500,
+        ))
+        result = inj.inject("S1", "test")
+        assert result == ""
+
+    def test_get_live_sources_empty_when_none_registered(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        inj = MemoryInjector(manager, cache_ttl=0)
+        assert inj.get_live_sources() == {}
+
+    def test_live_source_exception_handled(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        inj = MemoryInjector(manager, cache_ttl=0)
+        inj.register_live_source("bad", lambda: 1/0)
+        inj.register_live_source("good", lambda: "OK")
+        sources = inj.get_live_sources()
+        assert "good" in sources
+        assert "bad" not in sources

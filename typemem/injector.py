@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from typemem.memory_item import MemoryTier
 from typemem.memory_manager import MemoryManager
@@ -39,6 +39,7 @@ class MemoryInjector:
         self._cache: Dict[Tuple[str, str], Tuple[float, str]] = {}
         self._max_cache_size = 100
         self._last_results: List[Dict] = []
+        self._live_sources: Dict[str, Callable[[], str]] = {}
 
     @property
     def last_results(self) -> List[Dict]:
@@ -55,6 +56,22 @@ class MemoryInjector:
     def set_stage_config(self, stage: str, config: StageConfig):
         self._configs[stage] = config
 
+    def register_live_source(self, name: str, fn: Callable[[], str]):
+        """Register a callable that returns always-fresh context (e.g. current sensor data)."""
+        self._live_sources[name] = fn
+
+    def get_live_sources(self) -> Dict[str, str]:
+        """Call all live sources and return {name: content}, skipping failures and empties."""
+        results = {}
+        for name, fn in self._live_sources.items():
+            try:
+                value = fn()
+                if value:
+                    results[name] = value
+            except Exception:
+                logger.debug("Live source '%s' raised an exception, skipping", name)
+        return results
+
     def inject(self, stage: str, query: str, max_tokens: Optional[int] = None) -> str:
         config = self._configs.get(stage)
         if config is None:
@@ -63,13 +80,23 @@ class MemoryInjector:
 
         effective_max_tokens = max_tokens if max_tokens is not None else config.max_tokens
 
+        # Collect live sources — always fresh, bypass cache
+        has_live = bool(self._live_sources)
+        live_data = self.get_live_sources() if has_live else {}
+        live_lines = [content for content in live_data.values()]
+        live_results = [
+            {"id": None, "text": content, "tier": "live", "score": None, "source": name}
+            for name, content in live_data.items()
+        ]
+
         cache_key = (stage, query)
         now = time.time()
-        cached = self._cache.get(cache_key)
-        if cached is not None:
-            cache_time, cached_result = cached
-            if now - cache_time < self._cache_ttl:
-                return cached_result
+        if not has_live:
+            cached = self._cache.get(cache_key)
+            if cached is not None:
+                cache_time, cached_result = cached
+                if now - cache_time < self._cache_ttl:
+                    return cached_result
 
         # Pinned items — always included, prepended before search results
         pinned_lines = []
@@ -91,7 +118,7 @@ class MemoryInjector:
             query=query, tiers=config.tiers, n_results=config.n_results,
         )
 
-        if not items and not pinned_lines:
+        if not items and not pinned_lines and not live_lines:
             return ""
 
         remaining_tokens = effective_max_tokens - pinned_tokens
@@ -121,18 +148,19 @@ class MemoryInjector:
             selected_scores.append(round(score, 4))
             token_count += line_tokens
 
-        self._last_results = [
+        search_results = [
             {"id": selected_ids[i], "text": lines[i], "tier": scored[i][0].tier.label,
              "score": selected_scores[i]}
             for i in range(len(selected_ids))
         ]
+        self._last_results = live_results + search_results
 
         if self._recorder and selected_ids:
             self._recorder.record_injection(
                 stage=stage, memory_ids=selected_ids, scores=selected_scores,
             )
 
-        result = "\n".join(pinned_lines + lines)
+        result = "\n".join(live_lines + pinned_lines + lines)
 
         if self._on_injection and result:
             try:
@@ -140,11 +168,12 @@ class MemoryInjector:
             except Exception:
                 pass
 
-        self._cache[cache_key] = (now, result)
-        if len(self._cache) > self._max_cache_size:
-            self._cache = {
-                k: v for k, v in self._cache.items()
-                if now - v[0] < self._cache_ttl
-            }
+        if not has_live:
+            self._cache[cache_key] = (now, result)
+            if len(self._cache) > self._max_cache_size:
+                self._cache = {
+                    k: v for k, v in self._cache.items()
+                    if now - v[0] < self._cache_ttl
+                }
 
         return result
