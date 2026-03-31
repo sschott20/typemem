@@ -1,6 +1,6 @@
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from typemem.memory_item import MemoryTier
@@ -15,6 +15,7 @@ class StageConfig:
     max_tokens: int = 500
     n_results: int = 10
     recency_weight: float = 0.3
+    pinned_sources: List[str] = field(default_factory=list)
 
 
 DEFAULT_STAGE_CONFIGS: Dict[str, StageConfig] = {
@@ -65,12 +66,30 @@ class MemoryInjector:
             if now - cache_time < self._cache_ttl:
                 return cached_result
 
+        # Pinned items — always included, prepended before search results
+        pinned_lines = []
+        pinned_tokens = 0
+        for src in config.pinned_sources:
+            src_items = self._manager.get_by_source(src)
+            if not src_items:
+                continue
+            most_recent = max(src_items, key=lambda it: it.timestamp)
+            line = f"[{most_recent.tier}] {most_recent.document}"
+            line_tokens = len(line) // 4
+            # Always include first pinned item; stop adding more if budget exceeded
+            if pinned_lines and pinned_tokens + line_tokens > effective_max_tokens:
+                break
+            pinned_lines.append(line)
+            pinned_tokens += line_tokens
+
         items, distances = self._manager.search_with_distances(
             query=query, tiers=config.tiers, n_results=config.n_results,
         )
 
-        if not items:
+        if not items and not pinned_lines:
             return ""
+
+        remaining_tokens = effective_max_tokens - pinned_tokens
 
         w = config.recency_weight
         scored = []
@@ -90,7 +109,7 @@ class MemoryInjector:
         for item, score in scored:
             line = f"[{item.tier}] {item.document}"
             line_tokens = len(line) // 4
-            if token_count + line_tokens > effective_max_tokens:
+            if token_count + line_tokens > remaining_tokens:
                 break
             lines.append(line)
             selected_ids.append(item.id)
@@ -108,7 +127,7 @@ class MemoryInjector:
                 stage=stage, memory_ids=selected_ids, scores=selected_scores,
             )
 
-        result = "\n".join(lines)
+        result = "\n".join(pinned_lines + lines)
 
         self._cache[cache_key] = (now, result)
         if len(self._cache) > self._max_cache_size:

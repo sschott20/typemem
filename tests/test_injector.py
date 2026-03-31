@@ -2,6 +2,7 @@ import time
 import pytest
 from typemem.injector import MemoryInjector, StageConfig
 from typemem.memory_item import MemoryItem, MemoryTier, MemoryType
+from typemem.memory_manager import MemoryManager
 
 
 class TestMemoryInjector:
@@ -82,3 +83,49 @@ class TestMemoryInjector:
         events = rec.get_events()
         inject_events = [e for e in events if e.event == "inject"]
         assert len(inject_events) >= 1
+
+
+class TestPinnedInjection:
+    def test_pinned_source_prepended(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        manager.add(MemoryItem(document="situation: person in room", tier=MemoryTier.M2, memory_type=MemoryType.SUMMARY, robot_id="test", source="situation_summary"))
+        manager.add(MemoryItem(document="some other memory", tier=MemoryTier.M1, memory_type=MemoryType.OBSERVATION, robot_id="test", source="obs"))
+
+        injector = MemoryInjector(manager, cache_ttl=0)
+        injector.set_stage_config("S1", StageConfig(
+            tiers=[MemoryTier.M1, MemoryTier.M2],
+            max_tokens=500,
+            pinned_sources=["situation_summary"],
+        ))
+        result = injector.inject("S1", query="what is happening")
+        # Pinned item should appear first
+        lines = result.strip().split("\n")
+        assert "situation: person in room" in lines[0]
+
+    def test_empty_pinned_sources_is_noop(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        manager.add(MemoryItem(document="hello world", tier=MemoryTier.M1, memory_type=MemoryType.OBSERVATION, robot_id="test"))
+
+        injector = MemoryInjector(manager, cache_ttl=0)
+        injector.set_stage_config("S1", StageConfig(
+            tiers=[MemoryTier.M1],
+            max_tokens=500,
+            pinned_sources=[],
+        ))
+        result = injector.inject("S1", query="hello")
+        assert "hello" in result
+
+    def test_pinned_first_item_always_included(self, tmp_path):
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        long_doc = "x " * 200
+        manager.add(MemoryItem(document=long_doc, tier=MemoryTier.M2, memory_type=MemoryType.SUMMARY, robot_id="test", source="pinned_src"))
+
+        injector = MemoryInjector(manager, cache_ttl=0)
+        injector.set_stage_config("S1", StageConfig(
+            tiers=[MemoryTier.M1, MemoryTier.M2],
+            max_tokens=10,  # tiny budget
+            pinned_sources=["pinned_src"],
+        ))
+        result = injector.inject("S1", query="anything")
+        # First pinned item always included even if it exceeds budget
+        assert "x x" in result
