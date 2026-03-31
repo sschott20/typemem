@@ -18,7 +18,7 @@ from typemem.memory_manager import MemoryManager
 _TIER_ORDER = {t.label: t.level for t in MemoryTier}
 
 _DEFAULT_DB_PRESETS = {
-    "TypeGo": "/home/gc635/Documents/TypeGo/src/typego/resource/memory_db",
+    "TypeGo": "/home/gc635/Documents/TypeGo/install/typego/share/typego/resource/memory_db",
 }
 
 
