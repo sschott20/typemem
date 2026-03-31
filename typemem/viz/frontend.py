@@ -35,7 +35,7 @@ html, body {
   overflow: hidden;
 }
 
-.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+.app { display: grid; grid-template-rows: auto auto auto 1fr; height: 100vh; }
 
 .stats-bar {
   display: flex; align-items: center; gap: 20px;
@@ -49,6 +49,36 @@ html, body {
 .connection-dot.connected { background: #3fb950; }
 .connection-dot.disconnected { background: #f85149; }
 .connection-label { font-size: 11px; color: var(--text-secondary); }
+
+.stats-toggle-btn {
+  padding: 4px 12px; border: 1px solid var(--border); border-radius: 6px;
+  background: transparent; color: var(--text-secondary); font-size: 11px;
+  cursor: pointer; font-family: var(--font-mono);
+}
+.stats-toggle-btn:hover { border-color: var(--accent); color: var(--text); }
+
+.stats-dashboard {
+  display: none; padding: 16px 20px; background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.stats-dashboard.open { display: block; }
+.stats-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.chart-section h3 {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 10px;
+}
+.bar-chart-h { display: flex; flex-direction: column; gap: 4px; }
+.bar-row { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; }
+.bar-label { width: 80px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); flex-shrink: 0; }
+.bar-track { flex: 1; height: 14px; background: rgba(88,166,255,0.06); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; }
+.bar-value { width: 36px; font-size: 10px; color: var(--text-secondary); flex-shrink: 0; }
+.timeline-chart { display: flex; align-items: flex-end; gap: 1px; height: 60px; }
+.timeline-bar {
+  flex: 1; background: var(--accent); border-radius: 1px 1px 0 0;
+  min-width: 2px; transition: height 0.3s; opacity: 0.7;
+}
+.timeline-bar:hover { opacity: 1; }
 
 .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 0; overflow: hidden; }
 .panel { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
@@ -68,10 +98,28 @@ html, body {
 }
 .search-input:focus { border-color: var(--accent); }
 .search-input::placeholder { color: var(--tier-m0); }
+.search-input.semantic-active { border-color: var(--glow); box-shadow: 0 0 0 1px var(--glow); }
 .filter-select {
   padding: 6px 8px; background: var(--bg); border: 1px solid var(--border);
   border-radius: 6px; color: var(--text); font-size: 12px; outline: none; cursor: pointer;
 }
+
+.col-headers {
+  display: flex; align-items: center; gap: 10px; padding: 6px 16px;
+  border-bottom: 1px solid var(--border); background: var(--panel);
+  font-family: var(--font-mono); font-size: 11px; flex-shrink: 0;
+}
+.col-header {
+  cursor: pointer; color: var(--text-secondary); user-select: none;
+  display: flex; align-items: center; gap: 3px;
+}
+.col-header:hover { color: var(--text); }
+.col-header.active { color: var(--accent); }
+.col-header .arrow { font-size: 9px; }
+.col-tier { width: 44px; flex-shrink: 0; }
+.col-time { width: 60px; flex-shrink: 0; text-align: right; }
+.col-source { width: 80px; flex-shrink: 0; }
+.col-text { flex: 1; }
 
 .entry-row {
   padding: 8px 16px; border-bottom: 1px solid var(--border); cursor: pointer;
@@ -82,7 +130,9 @@ html, body {
 .entry-summary { display: flex; align-items: center; gap: 10px; }
 .entry-id { color: var(--text-secondary); font-size: 11px; flex-shrink: 0; width: 68px; }
 .entry-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-source { color: var(--text-secondary); font-size: 11px; flex-shrink: 0; width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entry-links { color: var(--text-secondary); font-size: 10px; flex-shrink: 0; }
+.entry-distance { color: var(--glow); font-size: 10px; flex-shrink: 0; font-weight: 600; }
 
 .tier-badge {
   font-size: 10px; padding: 1px 8px; border-radius: 10px; font-weight: 600;
@@ -95,14 +145,33 @@ html, body {
 
 .entry-time { color: var(--text-secondary); font-size: 11px; flex-shrink: 0; text-align: right; min-width: 60px; }
 .entry-detail { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-.entry-row.expanded .entry-detail { max-height: 600px; }
+.entry-row.expanded .entry-detail { max-height: 800px; }
 .detail-content { margin-top: 10px; padding: 10px 12px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border); }
 .detail-field { margin-bottom: 6px; font-size: 12px; line-height: 1.6; }
 .detail-field .label { color: var(--text-secondary); margin-right: 6px; }
 .detail-field pre { margin-top: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow-x: auto; font-size: 11px; white-space: pre-wrap; word-break: break-word; }
+.detail-links { margin-top: 8px; }
+.detail-links .link-item {
+  display: flex; align-items: center; gap: 6px; padding: 4px 0;
+  font-size: 11px; color: var(--text-secondary);
+}
+.detail-links .link-item .tier-badge { font-size: 9px; }
 
 @keyframes entry-glow { 0% { background: rgba(248,129,102,0.2); } 100% { background: transparent; } }
 .entry-row.new-entry { animation: entry-glow 2s ease-out; }
+
+.pagination {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 8px 16px; border-top: 1px solid var(--border); background: var(--panel);
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); flex-shrink: 0;
+}
+.page-btn {
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
+  background: transparent; color: var(--text-secondary); font-size: 11px;
+  cursor: pointer; font-family: var(--font-mono);
+}
+.page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.page-btn:disabled { opacity: 0.3; cursor: default; }
 
 .tab-group { display: flex; gap: 4px; }
 .tab-btn {
@@ -135,6 +204,7 @@ html, body {
 @media (max-width: 900px) {
   .panels { grid-template-columns: 1fr; }
   .panel { border-right: none; border-bottom: 1px solid var(--border); }
+  .stats-charts { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -149,10 +219,32 @@ html, body {
     <span class="stat">M3: <span class="val" id="stat-M3">0</span></span>
     <span class="stat">Consol: <span class="val" id="stat-consol">0</span></span>
     <span class="stat">Injects: <span class="val" id="stat-injects">0</span></span>
-    <span style="margin-left:auto; display:flex; align-items:center; gap:4px;">
-      <span class="connection-dot disconnected" id="conn-dot"></span>
-      <span class="connection-label" id="conn-label">Connecting...</span>
+    <button class="stats-toggle-btn" id="stats-toggle">Stats &#9660;</button>
+    <span style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+      <span style="display:flex; align-items:center; gap:4px;">
+        <select class="filter-select" id="db-select" style="max-width:180px;font-size:11px;"></select>
+        <input type="text" class="search-input" id="db-path-input" placeholder="Custom path..." style="width:200px;font-size:11px;display:none;">
+        <button class="page-btn" id="db-switch-btn" style="font-size:11px;display:none;">Load</button>
+        <button class="page-btn" id="db-clear-btn" style="font-size:11px;color:#f85149;border-color:#f85149;">Clear DB</button>
+      </span>
+      <span style="display:flex; align-items:center; gap:4px;">
+        <span class="connection-dot disconnected" id="conn-dot"></span>
+        <span class="connection-label" id="conn-label">Connecting...</span>
+      </span>
     </span>
+  </div>
+
+  <div class="stats-dashboard" id="stats-dashboard">
+    <div class="stats-charts">
+      <div class="chart-section">
+        <h3>Keyword Frequency</h3>
+        <div class="bar-chart-h" id="keyword-chart"></div>
+      </div>
+      <div class="chart-section">
+        <h3>Timeline</h3>
+        <div class="timeline-chart" id="timeline-chart"></div>
+      </div>
+    </div>
   </div>
 
   <div class="panels">
@@ -160,7 +252,7 @@ html, body {
       <div class="panel-header">
         <h2>Memory Entries</h2>
         <div class="controls">
-          <input type="text" class="search-input" id="search-input" placeholder="Search entries...">
+          <input type="text" class="search-input" id="search-input" placeholder="Search (Enter for semantic)...">
           <select class="filter-select" id="tier-filter">
             <option value="all">All Tiers</option>
             <option value="M0">M0 (raw)</option>
@@ -168,14 +260,39 @@ html, body {
             <option value="M2">M2 (summaries)</option>
             <option value="M3">M3 (knowledge)</option>
           </select>
-          <select class="filter-select" id="sort-select">
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="text">By Text</option>
+          <select class="filter-select" id="type-filter">
+            <option value="all">All Types</option>
+            <option value="observation">observation</option>
+            <option value="summary">summary</option>
+            <option value="instruction">instruction</option>
+            <option value="action">action</option>
+            <option value="lesson">lesson</option>
+          </select>
+          <select class="filter-select" id="source-filter">
+            <option value="all">All Sources</option>
+          </select>
+          <select class="filter-select" id="time-filter">
+            <option value="all">All Time</option>
+            <option value="300">Last 5m</option>
+            <option value="900">Last 15m</option>
+            <option value="3600">Last 1h</option>
+            <option value="21600">Last 6h</option>
+            <option value="86400">Last 24h</option>
           </select>
         </div>
       </div>
+      <div class="col-headers" id="col-headers">
+        <span class="col-header active col-tier" data-sort="tier">Tier</span>
+        <span class="col-header col-text" style="cursor:default;">Text</span>
+        <span class="col-header col-source" data-sort="source">Source</span>
+        <span class="col-header active col-time" data-sort="newest">Time <span class="arrow">&#9660;</span></span>
+      </div>
       <div class="panel-body" id="entries-panel"></div>
+      <div class="pagination" id="pagination">
+        <button class="page-btn" id="page-prev" disabled>&#8249; Prev</button>
+        <span id="page-info">Page 1 of 1 (0 total)</span>
+        <button class="page-btn" id="page-next" disabled>Next &#8250;</button>
+      </div>
     </div>
 
     <div class="panel">
@@ -195,8 +312,14 @@ html, body {
 <script>
 (function() {
   var entries = [], operations = [], stats = {};
-  var currentTab = "all", searchText = "", filterTier = "all", sortBy = "newest";
+  var currentTab = "all";
+  var filterTier = "all", filterType = "all", filterSource = "all", filterTime = "all";
+  var sortCol = "newest", sortAsc = false;
   var expandedEntryId = null, expandedOpIdx = null, knownEntryIds = {};
+  var currentPage = 0, pageLimit = 100, totalEntries = 0;
+  var semanticMode = false, semanticResults = null;
+  var linksCache = {};
+  var statsOpen = false;
 
   var entriesPanel = document.getElementById("entries-panel");
   var opsPanel = document.getElementById("ops-panel");
@@ -217,7 +340,9 @@ html, body {
     return Math.floor(d/3600) + "h ago";
   }
   function fmtTime(ts) { return ts ? new Date(ts*1000).toLocaleTimeString() : ""; }
+  function fetchJSON(url) { return fetch(url).then(function(r) { return r.json(); }); }
 
+  // Stats bar
   function renderStats() {
     document.getElementById("stat-total").textContent = stats.total || 0;
     ["M0","M1","M2","M3"].forEach(function(t) {
@@ -226,34 +351,113 @@ html, body {
     });
     document.getElementById("stat-consol").textContent = stats.consolidations_count || 0;
     document.getElementById("stat-injects").textContent = stats.injections_count || 0;
+    updateSourceFilter();
+    renderCharts();
   }
 
+  // Source filter dynamic population
+  function updateSourceFilter() {
+    var sel = document.getElementById("source-filter");
+    var sc = (stats.source_counts) || {};
+    var current = filterSource;
+    var opts = '<option value="all">All Sources</option>';
+    Object.keys(sc).sort().forEach(function(s) {
+      opts += '<option value="' + esc(s) + '"' + (current === s ? ' selected' : '') + '>' + esc(s) + ' (' + sc[s] + ')</option>';
+    });
+    sel.innerHTML = opts;
+  }
+
+  // Charts
+  function renderCharts() {
+    var kwEl = document.getElementById("keyword-chart");
+    var tlEl = document.getElementById("timeline-chart");
+    // Keyword frequency
+    var kws = stats.keywords || {};
+    var kwPairs = Object.keys(kws).map(function(k) { return {k:k, v:kws[k]}; });
+    kwPairs.sort(function(a,b) { return b.v - a.v; });
+    kwPairs = kwPairs.slice(0, 10);
+    var maxKw = kwPairs.length ? kwPairs[0].v : 1;
+    var kwHtml = "";
+    kwPairs.forEach(function(p) {
+      var pct = Math.round((p.v / maxKw) * 100);
+      kwHtml += '<div class="bar-row"><span class="bar-label" title="' + esc(p.k) + '">' + esc(p.k) + '</span>';
+      kwHtml += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>';
+      kwHtml += '<span class="bar-value">' + p.v + '</span></div>';
+    });
+    kwEl.innerHTML = kwHtml || '<div style="color:var(--text-secondary);font-size:11px;">No keyword data</div>';
+
+    // Timeline
+    var tl = stats.timeline || [];
+    if (!tl.length) { tlEl.innerHTML = '<div style="color:var(--text-secondary);font-size:11px;align-self:center;">No timeline data</div>'; return; }
+    var maxTl = 1;
+    tl.forEach(function(v) { if (v > maxTl) maxTl = v; });
+    var tlHtml = "";
+    tl.forEach(function(v) {
+      var h = Math.max(2, Math.round((v / maxTl) * 60));
+      tlHtml += '<div class="timeline-bar" style="height:' + h + 'px" title="' + v + ' items"></div>';
+    });
+    tlEl.innerHTML = tlHtml;
+  }
+
+  // Stats toggle
+  document.getElementById("stats-toggle").addEventListener("click", function() {
+    statsOpen = !statsOpen;
+    document.getElementById("stats-dashboard").classList.toggle("open", statsOpen);
+    this.innerHTML = "Stats " + (statsOpen ? "&#9650;" : "&#9660;");
+  });
+
+  // Column headers sort
+  function updateColHeaders() {
+    document.querySelectorAll("#col-headers .col-header").forEach(function(h) {
+      var s = h.getAttribute("data-sort");
+      var isActive = (s === sortCol) || (s === "newest" && (sortCol === "newest" || sortCol === "oldest"));
+      h.classList.toggle("active", isActive);
+      var arrow = h.querySelector(".arrow");
+      if (arrow) arrow.remove();
+      if (isActive) {
+        var ar = document.createElement("span");
+        ar.className = "arrow";
+        ar.innerHTML = sortAsc ? "&#9650;" : "&#9660;";
+        h.appendChild(ar);
+      }
+    });
+  }
+  document.getElementById("col-headers").addEventListener("click", function(ev) {
+    var h = ev.target.closest(".col-header");
+    if (!h) return;
+    var s = h.getAttribute("data-sort");
+    if (s === "newest") {
+      if (sortCol === "newest") { sortCol = "oldest"; sortAsc = true; }
+      else if (sortCol === "oldest") { sortCol = "newest"; sortAsc = false; }
+      else { sortCol = "newest"; sortAsc = false; }
+    } else {
+      if (sortCol === s) { sortAsc = !sortAsc; }
+      else { sortCol = s; sortAsc = true; }
+    }
+    updateColHeaders();
+    currentPage = 0;
+    if (semanticMode) return;
+    fetchEntries();
+  });
+
+  // Entries rendering
   function renderEntries(newIds) {
     if (!newIds) newIds = {};
-    var filtered = entries.filter(function(e) {
-      if (filterTier !== "all" && e.tier !== filterTier) return false;
-      if (searchText) {
-        var q = searchText.toLowerCase();
-        if ((e.text||"").toLowerCase().indexOf(q) === -1 && (e.id||"").toLowerCase().indexOf(q) === -1) return false;
-      }
-      return true;
-    });
-    filtered.sort(function(a, b) {
-      if (sortBy === "newest") return (b.timestamp||0) - (a.timestamp||0);
-      if (sortBy === "oldest") return (a.timestamp||0) - (b.timestamp||0);
-      return (a.text||"").localeCompare(b.text||"");
-    });
-    if (!filtered.length) { entriesPanel.innerHTML = '<div class="empty-state">No memory entries</div>'; return; }
-
+    var list = semanticMode ? (semanticResults || []) : entries;
+    if (!list.length) {
+      entriesPanel.innerHTML = '<div class="empty-state">' + (semanticMode ? "No search results" : "No memory entries") + '</div>';
+      return;
+    }
     var html = "";
-    filtered.forEach(function(e) {
+    list.forEach(function(e) {
       var exp = expandedEntryId === e.id;
       var cls = "entry-row" + (exp ? " expanded" : "") + (newIds[e.id] ? " new-entry" : "");
       html += '<div class="' + cls + '" data-id="' + esc(e.id) + '">';
       html += '<div class="entry-summary">';
-      html += '<span class="entry-id">' + esc(trunc(e.id, 8)) + '</span>';
-      html += '<span class="entry-text">' + esc(trunc(e.text, 60)) + '</span>';
       html += '<span class="tier-badge ' + esc(e.tier) + '">' + esc(e.tier) + '</span>';
+      html += '<span class="entry-text">' + esc(trunc(e.text, 60)) + '</span>';
+      html += '<span class="entry-source">' + esc(e.source || "") + '</span>';
+      if (semanticMode && e.distance != null) html += '<span class="entry-distance">' + e.distance.toFixed(3) + '</span>';
       if (e.links) html += '<span class="entry-links">' + e.links + ' links</span>';
       html += '<span class="entry-time">' + esc(timeAgo(e.timestamp)) + '</span>';
       html += '</div>';
@@ -268,13 +472,91 @@ html, body {
         html += '<div class="detail-field"><span class="label">Links:</span> ' + (e.links || 0) + '</div>';
         if (e.keywords) html += '<div class="detail-field"><span class="label">Keywords:</span> ' + esc(e.keywords) + '</div>';
         if (e.source) html += '<div class="detail-field"><span class="label">Source:</span> ' + esc(e.source) + '</div>';
+        if (semanticMode && e.distance != null) html += '<div class="detail-field"><span class="label">Distance:</span> ' + e.distance.toFixed(4) + '</div>';
+        html += '<div class="detail-links" id="links-' + esc(e.id) + '"></div>';
         html += '</div>';
       }
       html += '</div></div>';
     });
     entriesPanel.innerHTML = html;
+    // Fetch links for expanded entry
+    if (expandedEntryId) {
+      var expandedEntry = list.find(function(e) { return e.id === expandedEntryId; });
+      if (expandedEntry && expandedEntry.links > 0) fetchLinks(expandedEntryId);
+    }
   }
 
+  function fetchLinks(id) {
+    if (linksCache[id]) { renderLinks(id, linksCache[id]); return; }
+    fetchJSON("/api/links/" + encodeURIComponent(id)).then(function(data) {
+      linksCache[id] = data;
+      renderLinks(id, data);
+    }).catch(function(){});
+  }
+  function renderLinks(id, links) {
+    var el = document.getElementById("links-" + id);
+    if (!el || !links.length) return;
+    var html = '<div class="detail-field" style="margin-top:8px;"><span class="label">Linked items (' + links.length + '):</span></div>';
+    links.forEach(function(l) {
+      html += '<div class="link-item">';
+      html += '<span class="tier-badge ' + esc(l.tier) + '" style="font-size:9px;">' + esc(l.tier) + '</span>';
+      html += '<span>' + esc(trunc(l.text, 80)) + '</span>';
+      html += '</div>';
+    });
+    el.innerHTML = html;
+  }
+
+  // Pagination
+  function renderPagination() {
+    var totalPages = Math.max(1, Math.ceil(totalEntries / pageLimit));
+    var page = currentPage + 1;
+    document.getElementById("page-info").textContent = "Page " + page + " of " + totalPages + " (" + totalEntries + " total)";
+    document.getElementById("page-prev").disabled = currentPage <= 0;
+    document.getElementById("page-next").disabled = page >= totalPages;
+  }
+  document.getElementById("page-prev").addEventListener("click", function() {
+    if (currentPage > 0) { currentPage--; fetchEntries(); }
+  });
+  document.getElementById("page-next").addEventListener("click", function() {
+    var totalPages = Math.ceil(totalEntries / pageLimit);
+    if (currentPage + 1 < totalPages) { currentPage++; fetchEntries(); }
+  });
+
+  // Fetch entries with filters and pagination
+  function fetchEntries() {
+    var params = [];
+    if (filterTier !== "all") params.push("tier=" + encodeURIComponent(filterTier));
+    if (filterType !== "all") params.push("type=" + encodeURIComponent(filterType));
+    if (filterSource !== "all") params.push("source=" + encodeURIComponent(filterSource));
+    if (filterTime !== "all") {
+      var since = Math.floor(Date.now()/1000) - parseInt(filterTime);
+      params.push("since=" + since);
+    }
+    var apiSort = sortCol;
+    if (sortCol === "oldest") apiSort = "oldest";
+    else if (sortCol === "newest") apiSort = "newest";
+    else apiSort = sortCol + (sortAsc ? "_asc" : "_desc");
+    params.push("sort=" + apiSort);
+    params.push("offset=" + (currentPage * pageLimit));
+    params.push("limit=" + pageLimit);
+    var url = "/api/entries?" + params.join("&");
+    return fetchJSON(url).then(function(data) {
+      var items, total;
+      if (Array.isArray(data)) {
+        items = data; total = data.length;
+      } else {
+        items = data.items || []; total = data.total || items.length;
+      }
+      var newIds = {};
+      items.forEach(function(e) { if (!knownEntryIds[e.id]) newIds[e.id] = true; knownEntryIds[e.id] = true; });
+      entries = items;
+      totalEntries = total;
+      renderEntries(newIds);
+      renderPagination();
+    }).catch(function(){});
+  }
+
+  // Operations rendering
   function renderOperations() {
     var ops = operations.filter(function(o) {
       if (currentTab === "all") return true;
@@ -367,7 +649,9 @@ html, body {
       var data; try { data = JSON.parse(ev.data); } catch(e) { return; }
       if (!data) return;
       operations.push(data);
-      if (data.type === "add" || data.type === "consolidation") fetchEntries();
+      if (data.type === "add" || data.type === "consolidation") {
+        if (!semanticMode) fetchEntries();
+      }
       fetchStats();
       renderOperations();
       opsPanel.scrollTop = 0;
@@ -378,10 +662,60 @@ html, body {
     };
   }
 
-  // Events
-  document.getElementById("search-input").addEventListener("input", function() { searchText = this.value; renderEntries(); });
-  document.getElementById("tier-filter").addEventListener("change", function() { filterTier = this.value; renderEntries(); });
-  document.getElementById("sort-select").addEventListener("change", function() { sortBy = this.value; renderEntries(); });
+  // Search - semantic on Enter, text filter on input
+  var searchInput = document.getElementById("search-input");
+  searchInput.addEventListener("keydown", function(ev) {
+    if (ev.key === "Enter" && this.value.trim()) {
+      ev.preventDefault();
+      semanticMode = true;
+      this.classList.add("semantic-active");
+      fetchJSON("/api/search?q=" + encodeURIComponent(this.value.trim())).then(function(data) {
+        semanticResults = data.items || data;
+        totalEntries = semanticResults.length;
+        currentPage = 0;
+        renderEntries();
+        renderPagination();
+      }).catch(function() {
+        semanticResults = [];
+        renderEntries();
+      });
+    } else if (ev.key === "Escape") {
+      exitSemanticMode();
+    }
+  });
+  searchInput.addEventListener("input", function() {
+    if (!this.value && semanticMode) {
+      exitSemanticMode();
+    }
+  });
+  function exitSemanticMode() {
+    semanticMode = false;
+    semanticResults = null;
+    searchInput.classList.remove("semantic-active");
+    searchInput.value = "";
+    currentPage = 0;
+    fetchEntries();
+  }
+
+  // Filter events
+  document.getElementById("tier-filter").addEventListener("change", function() {
+    filterTier = this.value; currentPage = 0;
+    if (!semanticMode) fetchEntries();
+  });
+  document.getElementById("type-filter").addEventListener("change", function() {
+    filterType = this.value; currentPage = 0;
+    if (!semanticMode) fetchEntries();
+  });
+  document.getElementById("source-filter").addEventListener("change", function() {
+    filterSource = this.value; currentPage = 0;
+    if (!semanticMode) fetchEntries();
+  });
+  document.getElementById("time-filter").addEventListener("change", function() {
+    filterTime = this.value; currentPage = 0;
+    if (!semanticMode) fetchEntries();
+  });
+
+  // Tab group
   document.getElementById("tab-group").addEventListener("click", function(ev) {
     var btn = ev.target.closest(".tab-btn");
     if (!btn) return;
@@ -391,13 +725,18 @@ html, body {
     expandedOpIdx = null;
     renderOperations();
   });
+
+  // Entry expand
   entriesPanel.addEventListener("click", function(ev) {
     var row = ev.target.closest(".entry-row");
     if (!row) return;
     var id = row.getAttribute("data-id");
     expandedEntryId = expandedEntryId === id ? null : id;
+    linksCache = {};
     renderEntries();
   });
+
+  // Op expand
   opsPanel.addEventListener("click", function(ev) {
     var row = ev.target.closest(".op-row");
     if (!row) return;
@@ -406,15 +745,6 @@ html, body {
     renderOperations();
   });
 
-  function fetchJSON(url) { return fetch(url).then(function(r) { return r.json(); }); }
-  function fetchEntries() {
-    return fetchJSON("/api/entries").then(function(data) {
-      var newIds = {};
-      data.forEach(function(e) { if (!knownEntryIds[e.id]) newIds[e.id] = true; knownEntryIds[e.id] = true; });
-      entries = data;
-      renderEntries(newIds);
-    });
-  }
   function fetchStats() { return fetchJSON("/api/stats").then(function(d) { stats = d; renderStats(); }); }
   function fetchOps() {
     return fetchJSON("/api/events").then(function(data) {
@@ -423,14 +753,114 @@ html, body {
     });
   }
 
+  // Database selector
+  var dbSelect = document.getElementById("db-select");
+  var dbPathInput = document.getElementById("db-path-input");
+  var dbSwitchBtn = document.getElementById("db-switch-btn");
+
+  function initDbSelector() {
+    fetchJSON("/api/databases").then(function(data) {
+      var current = data.current || "";
+      var presets = data.presets || {};
+      var opts = '';
+      var foundCurrent = false;
+      Object.keys(presets).forEach(function(name) {
+        var path = presets[name];
+        var sel = (path === current) ? " selected" : "";
+        if (path === current) foundCurrent = true;
+        opts += '<option value="' + esc(path) + '"' + sel + '>' + esc(name) + '</option>';
+      });
+      if (!foundCurrent && current) {
+        opts = '<option value="' + esc(current) + '" selected>' + esc(current.split("/").pop() || current) + '</option>' + opts;
+      }
+      opts += '<option value="__custom__">Custom path...</option>';
+      dbSelect.innerHTML = opts;
+      dbPathInput.style.display = "none";
+      dbSwitchBtn.style.display = "none";
+    }).catch(function(){});
+  }
+
+  dbSelect.addEventListener("change", function() {
+    if (this.value === "__custom__") {
+      dbPathInput.style.display = "";
+      dbSwitchBtn.style.display = "";
+      dbPathInput.focus();
+    } else {
+      dbPathInput.style.display = "none";
+      dbSwitchBtn.style.display = "none";
+      switchDatabase(this.value);
+    }
+  });
+
+  dbSwitchBtn.addEventListener("click", function() {
+    var path = dbPathInput.value.trim();
+    if (path) switchDatabase(path);
+  });
+
+  document.getElementById("db-clear-btn").addEventListener("click", function() {
+    if (!confirm("Delete ALL memories from the database? This cannot be undone.")) return;
+    fetch("/api/database/clear", { method: "POST" })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) { alert("Clear failed: " + data.error); return; }
+        knownEntryIds = {};
+        entries = [];
+        operations = [];
+        stats = {};
+        currentPage = 0;
+        fetchEntries();
+        fetchStats().catch(function(){});
+      })
+      .catch(function(err) { alert("Clear failed: " + err); });
+  });
+  dbPathInput.addEventListener("keydown", function(ev) {
+    if (ev.key === "Enter") {
+      var path = this.value.trim();
+      if (path) switchDatabase(path);
+    }
+  });
+
+  function switchDatabase(path) {
+    fetch("/api/database", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({path: path})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.error) {
+        alert("Failed to load database: " + data.error);
+        return;
+      }
+      knownEntryIds = {};
+      entries = [];
+      operations = [];
+      stats = {};
+      currentPage = 0;
+      expandedEntryId = null;
+      expandedOpIdx = null;
+      linksCache = {};
+      semanticMode = false;
+      semanticResults = null;
+      searchInput.classList.remove("semantic-active");
+      searchInput.value = "";
+      fetchEntries();
+      fetchStats().catch(function(){});
+      fetchOps().catch(function(){});
+      initDbSelector();
+    }).catch(function(e) {
+      alert("Error switching database: " + e);
+    });
+  }
+
   // Init
-  fetchJSON("/api/entries").then(function(data) {
-    data.forEach(function(e) { knownEntryIds[e.id] = true; });
-    entries = data; renderEntries();
-  }).catch(function(){});
+  fetchEntries();
   fetchStats().catch(function(){});
   fetchOps().catch(function(){});
   connectSSE();
+  updateColHeaders();
+  initDbSelector();
+
+  // Periodic stats refresh
+  setInterval(function() { fetchStats().catch(function(){}); }, 10000);
 })();
 </script>
 </body>

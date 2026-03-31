@@ -347,7 +347,19 @@ class VizHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = self.path.split("?")[0]
 
-        if path == "/api/database":
+        if path == "/api/database/clear":
+            try:
+                manager = self.server.manager
+                for tier in MemoryTier:
+                    items = manager.get_by_tier(tier)
+                    for item in items:
+                        manager.delete(item.id)
+                total = manager.count()
+                self._json_response({"ok": True, "remaining": total})
+            except Exception as ex:
+                self._json_response({"error": str(ex)}, status=500)
+
+        elif path == "/api/database":
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length else b""
             try:
