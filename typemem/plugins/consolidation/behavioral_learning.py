@@ -11,7 +11,7 @@ from typemem.plugins.base import ConsolidationPlugin
 
 logger = logging.getLogger(__name__)
 
-_MIN_CONVERSATIONS = 2
+_MIN_CONVERSATIONS = 1
 
 
 def _parse_behavioral_response(response: str) -> Tuple[str, str, str]:
@@ -72,18 +72,33 @@ class BehavioralLearningPlugin(ConsolidationPlugin):
             for i, conv in enumerate(conversations)
         )
 
-        prompt = (
-            "Here are recent completed conversations between the user and robot:\n\n"
-            f"{conversations_text}\n\n"
-            "Are there any repeated patterns where the user consistently gives "
-            "the same instruction in response to a similar situation? If so, "
-            "extract a behavioral rule the robot should follow autonomously.\n\n"
-            "If no clear pattern exists, respond with exactly: NO_PATTERN\n\n"
-            "Otherwise respond with:\n"
-            "Rule: <one sentence behavioral rule>\n"
-            "Trigger: <what triggers this behavior>\n"
-            "Keywords: <comma-separated>"
-        )
+        if len(conversations) == 1:
+            prompt = (
+                "Here is a recent conversation between the user and robot:\n\n"
+                f"{conversations_text}\n\n"
+                "Does the user correct the robot's behavior or teach it something "
+                "it should do differently next time in the same situation? "
+                "If so, extract a behavioral rule.\n\n"
+                "If no correction or teaching is present, respond with exactly: NO_PATTERN\n\n"
+                "Otherwise respond with:\n"
+                "Rule: <one sentence behavioral rule>\n"
+                "Trigger: <what situation triggers this rule>\n"
+                "Keywords: <comma-separated>"
+            )
+        else:
+            prompt = (
+                "Here are recent completed conversations between the user and robot:\n\n"
+                f"{conversations_text}\n\n"
+                "Are there any repeated patterns where the user consistently gives "
+                "the same instruction in response to a similar situation, or does "
+                "the user correct the robot's behavior? If so, "
+                "extract a behavioral rule the robot should follow autonomously.\n\n"
+                "If no clear pattern or correction exists, respond with exactly: NO_PATTERN\n\n"
+                "Otherwise respond with:\n"
+                "Rule: <one sentence behavioral rule>\n"
+                "Trigger: <what triggers this behavior>\n"
+                "Keywords: <comma-separated>"
+            )
 
         try:
             response = llm(prompt)
