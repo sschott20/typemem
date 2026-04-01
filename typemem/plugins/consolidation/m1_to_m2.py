@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 class M1ToM2Strategy(ConsolidationPlugin):
     """Summarize groups of similar M1 observations into M2 summaries using LLM."""
 
-    def __init__(self, min_group_size: int = 3):
+    def __init__(self, min_group_size: int = 3, distance_threshold: float = 0.5):
         self._min_group_size = min_group_size
+        self._distance_threshold = distance_threshold
 
     @property
     def name(self) -> str:
@@ -46,7 +47,8 @@ class M1ToM2Strategy(ConsolidationPlugin):
             logger.debug("M1ToM2: skipping, only %d unprocessed (need %d)", len(unprocessed), self._min_group_size)
             return []
 
-        groups = group_by_similarity(manager, unprocessed, MemoryTier.M1)
+        groups = group_by_similarity(manager, unprocessed, MemoryTier.M1,
+                                     distance_threshold=self._distance_threshold)
 
         new_ids = []
         for group in groups:
