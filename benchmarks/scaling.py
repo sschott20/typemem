@@ -103,9 +103,9 @@ def _run_with_events(
             )
             manager.add(mem_item)
             if (i + 1) % consolidate_interval == 0:
-                engine.run_all()
+                engine.run_all(llm=llm)
 
-        engine.run_all()
+        engine.run_all(llm=llm)
 
         # Run all queries
         precisions = []
@@ -252,18 +252,50 @@ def scaling_results_to_json(results: list[ScalingResult]) -> list[dict]:
     ]
 
 
+QUICK_SCENARIOS = {"building_security.yaml"}
+QUICK_STRATEGIES = {"full_context", "tiered_memory", "rag_with_recency"}
+QUICK_FRACTIONS = [0.25, 1.0]
+QUICK_DISTRACTOR_COUNTS = [0, 500]
+
+
 if __name__ == "__main__":
     import json
     import sys
 
+    quick = "--quick" in sys.argv
+
+    llm = None
+    if "--llm" in sys.argv:
+        from typemem.llm import make_anthropic_llm
+        llm = make_anthropic_llm()
+        print("Using LLM judge (Haiku 4.5) for evaluation")
+
     scenario_dir = Path(__file__).parent / "scenarios"
     strategies = _default_strategies()
+    if quick:
+        strategies = [s for s in strategies if s.name in QUICK_STRATEGIES]
+
+    scenario_files = sorted(scenario_dir.glob("*.yaml"))
+    if quick:
+        scenario_files = [p for p in scenario_files if p.name in QUICK_SCENARIOS]
+
+    fractions = QUICK_FRACTIONS if quick else None
+    distractor_counts = QUICK_DISTRACTOR_COUNTS if quick else None
+
+    if quick:
+        n_runs = len(scenario_files) * len(strategies) * (len(fractions) + len(distractor_counts))
+        print(f"Quick mode: {len(scenario_files)} scenarios x {len(strategies)} strategies x {len(fractions) + len(distractor_counts)} scale points = {n_runs} runs")
+
     all_results: list[ScalingResult] = []
 
-    for scenario_path in sorted(scenario_dir.glob("*.yaml")):
+    for scenario_path in scenario_files:
         for strategy in strategies:
-            all_results.extend(run_replay_fraction(scenario_path, strategy))
-            all_results.extend(run_noise_padding(scenario_path, strategy))
+            all_results.extend(run_replay_fraction(
+                scenario_path, strategy, fractions=fractions, llm=llm,
+            ))
+            all_results.extend(run_noise_padding(
+                scenario_path, strategy, distractor_counts=distractor_counts, llm=llm,
+            ))
 
     print_scaling_results(all_results)
 

@@ -15,6 +15,7 @@ from typemem.llm import LLMCallable
 from typemem.memory_item import MemoryItem, MemoryTier, MemoryType
 from typemem.memory_manager import MemoryManager
 from typemem.plugins.base import ConsolidationPlugin
+from typemem.plugins.llm_summary import LLMSummaryPlugin
 from typemem.plugins.text_summary import TextSummaryPlugin
 
 _BENCH_STAGE = "bench"
@@ -39,6 +40,10 @@ class StrategyConfig:
                 plugins.append(TextSummaryPlugin(
                     batch_size=p._batch_size, interval=p._interval,
                 ))
+            elif isinstance(p, LLMSummaryPlugin):
+                plugins.append(LLMSummaryPlugin(
+                    batch_size=p._batch_size, interval=p._interval,
+                ))
             else:
                 plugins.append(p)
         return plugins
@@ -57,6 +62,11 @@ def _default_strategies() -> list[StrategyConfig]:
         StrategyConfig(
             "tiered_memory", MemoryTier.M1,
             [TextSummaryPlugin(batch_size=3, interval=0)],
+            [MemoryTier.M1, MemoryTier.M2], 0.3, 10,
+        ),
+        StrategyConfig(
+            "tiered_llm", MemoryTier.M1,
+            [LLMSummaryPlugin(batch_size=3, interval=0)],
             [MemoryTier.M1, MemoryTier.M2], 0.3, 10,
         ),
         StrategyConfig(
@@ -174,9 +184,9 @@ def run_benchmark(
                 manager.add(mem_item)
                 events_fed += 1
                 if events_fed % consolidate_interval == 0:
-                    engine.run_all()
+                    engine.run_all(llm=llm)
             else:
-                engine.run_all()
+                engine.run_all(llm=llm)
 
                 query = item["query"]
                 ground_truth = item["ground_truth"]
@@ -344,7 +354,13 @@ if __name__ == "__main__":
     import json
     import sys
 
-    results = run_all_scenarios()
+    llm = None
+    if "--llm" in sys.argv:
+        from typemem.llm import make_anthropic_llm
+        llm = make_anthropic_llm()
+        print("Using LLM judge (Haiku 4.5) for evaluation")
+
+    results = run_all_scenarios(llm=llm)
     print_results(results)
 
     if "--json" in sys.argv:
