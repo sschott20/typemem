@@ -59,7 +59,10 @@ def create_memory_system(
         elif isinstance(p, ConsolidationPlugin):
             engine.register_strategy(p)
 
+    engine.set_observation_runner(obs_runner)
+
     injector = MemoryInjector(manager, cache_ttl=cfg.injector_cache_ttl)
+    injector.set_runner(obs_runner)
 
     if cfg.stage_configs:
         for stage, stage_cfg in cfg.stage_configs.items():
