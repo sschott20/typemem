@@ -37,3 +37,20 @@ def channels() -> List[str]:
     """Return list of channels that have subscribers."""
     with _lock:
         return list(_registry.keys())
+
+
+def drain(dq: collections.deque) -> list:
+    """Drain all items from a deque. Thread-safe via deque's atomic popleft."""
+    items = []
+    while dq:
+        try:
+            items.append(dq.popleft())
+        except IndexError:
+            break
+    return items
+
+
+def reset() -> None:
+    """Clear all subscriptions. For testing only."""
+    with _lock:
+        _registry.clear()

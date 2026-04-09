@@ -7,9 +7,9 @@ from typemem import events
 @pytest.fixture(autouse=True)
 def reset_event_bus():
     """Reset event bus state between tests."""
-    events._registry.clear()
+    events.reset()
     yield
-    events._registry.clear()
+    events.reset()
 
 
 class TestEventBus:
