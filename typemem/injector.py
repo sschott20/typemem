@@ -1,10 +1,15 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from typemem.memory_item import MemoryTier
+from typing import TYPE_CHECKING
+
+from typemem.memory_item import MemoryItem, MemoryTier, MemoryType
 from typemem.memory_manager import MemoryManager
+
+if TYPE_CHECKING:
+    from typemem.plugins.runner import ObservationRunner
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +21,33 @@ class StageConfig:
     n_results: int = 10
     recency_weight: float = 0.3
     pinned_sources: List[str] = field(default_factory=list)
+    live_sources: List[str] = field(default_factory=list)
 
 
 DEFAULT_STAGE_CONFIGS: Dict[str, StageConfig] = {
-    "S1": StageConfig(tiers=[MemoryTier.M1, MemoryTier.M2], max_tokens=400, n_results=10, recency_weight=0.5),
-    "S2": StageConfig(tiers=[MemoryTier.M2, MemoryTier.M3], max_tokens=600, n_results=15, recency_weight=0.3),
-    "S3": StageConfig(tiers=[MemoryTier.M2, MemoryTier.M3], max_tokens=600, n_results=15, recency_weight=0.1),
+    "S1": StageConfig(tiers=[MemoryTier.M1, MemoryTier.M2], max_tokens=400, n_results=10, recency_weight=0.5, live_sources=[]),
+    "S2": StageConfig(tiers=[MemoryTier.M2, MemoryTier.M3], max_tokens=600, n_results=15, recency_weight=0.3, live_sources=[]),
+    "S3": StageConfig(tiers=[MemoryTier.M2, MemoryTier.M3], max_tokens=600, n_results=15, recency_weight=0.1, live_sources=[]),
 }
 
 _DEFAULT_CACHE_TTL = 5.0
+
+
+def _format_memory_line(item: MemoryItem) -> str:
+    """Consistent framing for memory items in injected context."""
+    is_lesson = item.memory_type == MemoryType.LESSON
+    is_tip = item.source == "tip"
+
+    if is_lesson and item.tier == MemoryTier.M3:
+        return (
+            "[LEARNED RULES — MUST FOLLOW] "
+            "Validated rules from experience. Follow unless clearly inapplicable. "
+            "If deviating, state why.\n"
+            + item.document
+        )
+    if is_lesson or is_tip:
+        return f"[TIP — learned from experience, apply if relevant] {item.document}"
+    return f"[{item.tier}] {item.document}"
 
 
 class MemoryInjector:
@@ -39,7 +62,7 @@ class MemoryInjector:
         self._cache: Dict[Tuple[str, str], Tuple[float, str]] = {}
         self._max_cache_size = 100
         self._last_results: List[Dict] = []
-        self._live_sources: Dict[str, Callable[[], str]] = {}
+        self._runner: Optional["ObservationRunner"] = None
 
     @property
     def last_results(self) -> List[Dict]:
@@ -56,21 +79,15 @@ class MemoryInjector:
     def set_stage_config(self, stage: str, config: StageConfig):
         self._configs[stage] = config
 
-    def register_live_source(self, name: str, fn: Callable[[], str]):
-        """Register a callable that returns always-fresh context (e.g. current sensor data)."""
-        self._live_sources[name] = fn
+    def set_runner(self, runner: "ObservationRunner") -> None:
+        """Set the ObservationRunner used for plugin-based live sources."""
+        self._runner = runner
 
     def get_live_sources(self) -> Dict[str, str]:
-        """Call all live sources and return {name: content}, skipping failures and empties."""
-        results = {}
-        for name, fn in self._live_sources.items():
-            try:
-                value = fn()
-                if value:
-                    results[name] = value
-            except Exception:
-                logger.debug("Live source '%s' raised an exception, skipping", name)
-        return results
+        """Get all live summaries from the observation runner. Used by viz server."""
+        if self._runner is None:
+            return {}
+        return self._runner.get_all_live_summaries()
 
     def inject(self, stage: str, query: str, max_tokens: Optional[int] = None) -> str:
         config = self._configs.get(stage)
@@ -80,10 +97,17 @@ class MemoryInjector:
 
         effective_max_tokens = max_tokens if max_tokens is not None else config.max_tokens
 
-        # Collect live sources — always fresh, bypass cache
-        has_live = bool(self._live_sources)
-        live_data = self.get_live_sources() if has_live else {}
-        live_lines = [content for content in live_data.values()]
+        # Collect live sources — per-stage, always fresh, bypass cache
+        live_names = config.live_sources
+        has_live = bool(live_names) and self._runner is not None
+        live_data = {}
+        if has_live:
+            for name in live_names:
+                value = self._runner.get_live_summary(name)
+                if value:
+                    live_data[name] = value
+
+        live_lines = list(live_data.values())
         live_results = [
             {"id": None, "text": content, "tier": "live", "score": None, "source": name}
             for name, content in live_data.items()
@@ -101,12 +125,14 @@ class MemoryInjector:
         # Pinned items — always included, prepended before search results
         pinned_lines = []
         pinned_tokens = 0
+        pinned_ids = set()
         for src in config.pinned_sources:
             src_items = self._manager.get_by_source(src)
             if not src_items:
                 continue
             most_recent = max(src_items, key=lambda it: it.timestamp)
-            line = f"[{most_recent.tier}] {most_recent.document}"
+            pinned_ids.add(most_recent.id)
+            line = _format_memory_line(most_recent)
             line_tokens = len(line) // 4
             # Always include first pinned item; stop adding more if budget exceeded
             if pinned_lines and pinned_tokens + line_tokens > effective_max_tokens:
@@ -126,6 +152,8 @@ class MemoryInjector:
         w = config.recency_weight
         scored = []
         for i, item in enumerate(items):
+            if item.id in pinned_ids:
+                continue  # already included as pinned
             relevance = max(0.0, 1.0 - distances[i])
             age = max(now - item.timestamp, 1.0)
             recency = 1.0 / (1.0 + age / 60.0)
@@ -139,7 +167,7 @@ class MemoryInjector:
         selected_scores = []
         token_count = 0
         for item, score in scored:
-            line = f"[{item.tier}] {item.document}"
+            line = _format_memory_line(item)
             line_tokens = len(line) // 4
             if token_count + line_tokens > remaining_tokens:
                 break

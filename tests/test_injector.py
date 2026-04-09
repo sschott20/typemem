@@ -3,6 +3,8 @@ import pytest
 from typemem.injector import MemoryInjector, StageConfig
 from typemem.memory_item import MemoryItem, MemoryTier, MemoryType
 from typemem.memory_manager import MemoryManager
+from typemem.plugins.base import ObservationPlugin
+from typemem.plugins.runner import ObservationRunner
 
 
 class TestMemoryInjector:
@@ -131,11 +133,42 @@ class TestPinnedInjection:
         assert "x x" in result
 
 
+def _make_live_plugin(name: str, summary_fn):
+    """Create a mock ObservationPlugin with a custom live_summary."""
+    class _LivePlugin(ObservationPlugin):
+        @property
+        def name(self):
+            return name
+
+        @property
+        def interval_seconds(self):
+            return 999.0
+
+        def run(self):
+            return []
+
+        def live_summary(self):
+            return summary_fn()
+
+    return _LivePlugin()
+
+
+def _make_runner_with_plugins(plugins):
+    """Create an ObservationRunner with the given plugins registered."""
+    runner = ObservationRunner()
+    for p in plugins:
+        runner.register(p)
+    return runner
+
+
 class TestLiveSources:
     def test_register_and_get_live_sources(self, tmp_path):
         manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
         inj = MemoryInjector(manager, cache_ttl=0)
-        inj.register_live_source("obs", lambda: "Pose: (1.0, 2.0, 0.5)")
+        runner = _make_runner_with_plugins([
+            _make_live_plugin("obs", lambda: "Pose: (1.0, 2.0, 0.5)"),
+        ])
+        inj.set_runner(runner)
         sources = inj.get_live_sources()
         assert sources == {"obs": "Pose: (1.0, 2.0, 0.5)"}
 
@@ -145,10 +178,13 @@ class TestLiveSources:
             document="saw a cat earlier", tier=MemoryTier.M1,
             memory_type=MemoryType.OBSERVATION, robot_id="test",
         ))
+        runner = _make_runner_with_plugins([
+            _make_live_plugin("obs", lambda: "Detections: cat x1 (2.0m)"),
+        ])
         inj = MemoryInjector(manager, cache_ttl=0)
-        inj.register_live_source("obs", lambda: "Detections: cat x1 (2.0m)")
+        inj.set_runner(runner)
         inj.set_stage_config("S1", StageConfig(
-            tiers=[MemoryTier.M1], max_tokens=500,
+            tiers=[MemoryTier.M1], max_tokens=500, live_sources=["obs"],
         ))
         result = inj.inject("S1", "cat")
         lines = result.strip().split("\n")
@@ -157,10 +193,13 @@ class TestLiveSources:
 
     def test_live_source_in_last_results(self, tmp_path):
         manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        runner = _make_runner_with_plugins([
+            _make_live_plugin("obs", lambda: "Posture: STANDING"),
+        ])
         inj = MemoryInjector(manager, cache_ttl=0)
-        inj.register_live_source("obs", lambda: "Posture: STANDING")
+        inj.set_runner(runner)
         inj.set_stage_config("S1", StageConfig(
-            tiers=[MemoryTier.M1], max_tokens=500,
+            tiers=[MemoryTier.M1], max_tokens=500, live_sources=["obs"],
         ))
         inj.inject("S1", "anything")
         assert any(r.get("tier") == "live" for r in inj.last_results)
@@ -171,10 +210,13 @@ class TestLiveSources:
         def counter():
             call_count["n"] += 1
             return f"call {call_count['n']}"
+        runner = _make_runner_with_plugins([
+            _make_live_plugin("obs", counter),
+        ])
         inj = MemoryInjector(manager, cache_ttl=60)
-        inj.register_live_source("obs", counter)
+        inj.set_runner(runner)
         inj.set_stage_config("S1", StageConfig(
-            tiers=[MemoryTier.M1], max_tokens=500,
+            tiers=[MemoryTier.M1], max_tokens=500, live_sources=["obs"],
         ))
         r1 = inj.inject("S1", "test")
         r2 = inj.inject("S1", "test")
@@ -183,24 +225,30 @@ class TestLiveSources:
 
     def test_live_source_empty_returns_excluded(self, tmp_path):
         manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        runner = _make_runner_with_plugins([
+            _make_live_plugin("obs", lambda: ""),
+        ])
         inj = MemoryInjector(manager, cache_ttl=0)
-        inj.register_live_source("obs", lambda: "")
+        inj.set_runner(runner)
         inj.set_stage_config("S1", StageConfig(
-            tiers=[MemoryTier.M1], max_tokens=500,
+            tiers=[MemoryTier.M1], max_tokens=500, live_sources=["obs"],
         ))
         result = inj.inject("S1", "test")
         assert result == ""
 
-    def test_get_live_sources_empty_when_none_registered(self, tmp_path):
+    def test_get_live_sources_empty_when_no_runner(self, tmp_path):
         manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
         inj = MemoryInjector(manager, cache_ttl=0)
         assert inj.get_live_sources() == {}
 
     def test_live_source_exception_handled(self, tmp_path):
         manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        runner = _make_runner_with_plugins([
+            _make_live_plugin("bad", lambda: 1/0),
+            _make_live_plugin("good", lambda: "OK"),
+        ])
         inj = MemoryInjector(manager, cache_ttl=0)
-        inj.register_live_source("bad", lambda: 1/0)
-        inj.register_live_source("good", lambda: "OK")
+        inj.set_runner(runner)
         sources = inj.get_live_sources()
         assert "good" in sources
         assert "bad" not in sources
