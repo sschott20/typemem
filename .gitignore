@@ -6,3 +6,9 @@ chroma_*/
 *.pyc
 dist/
 build/
+
+# Generated artifacts
+benchmark_results.json
+latency_results.json
+scaling_results.json
+recordings/
