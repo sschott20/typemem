@@ -43,6 +43,7 @@ class MemoryManager:
         link_path = os.path.join(persist_dir, "links.json")
         self.links = LinkIndex(link_path)
         self._recorder = None
+        self._on_add = None  # callback: (item) -> None, called after each add
 
     @property
     def persist_dir(self) -> str:
@@ -55,10 +56,15 @@ class MemoryManager:
     def set_recorder(self, recorder):
         self._recorder = recorder
 
-    def add(self, item: MemoryItem, auto_link: bool = True) -> str:
-        existing_id = self._dedup_check(item)
-        if existing_id is not None:
-            return existing_id
+    def set_on_add(self, callback):
+        """Set a callback invoked after each successful add: callback(item)."""
+        self._on_add = callback
+
+    def add(self, item: MemoryItem, auto_link: bool = True, skip_dedup: bool = False) -> str:
+        if not skip_dedup:
+            existing_id = self._dedup_check(item)
+            if existing_id is not None:
+                return existing_id
 
         self._collection.add(
             ids=[item.id],
@@ -116,6 +122,11 @@ class MemoryManager:
                 tier=item.tier.label, document=item.document,
                 metadata=item.to_metadata(), item_id=item.id,
             )
+        if self._on_add:
+            try:
+                self._on_add(item)
+            except Exception:
+                logger.exception("on_add callback failed")
 
     def get(self, item_id: str) -> Optional[MemoryItem]:
         try:
