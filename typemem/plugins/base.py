@@ -38,6 +38,12 @@ class ObservationPlugin(ABC):
     def run(self) -> List[str]:
         ...
 
+    def live_summary(self) -> Optional[str]:
+        """Override to expose current state for prompt injection.
+        Called by the injector when this plugin's name appears in a stage's live_sources list.
+        Must be fast (no LLM calls). Return None if no data available."""
+        return None
+
     def teardown(self) -> None:
         pass
 

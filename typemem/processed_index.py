@@ -37,6 +37,10 @@ class ProcessedIndex:
         processed = self._data.get(plugin_name, set())
         return [i for i in item_ids if i not in processed]
 
+    def get_processed_set(self, plugin_name: str) -> frozenset:
+        """Return a snapshot of all processed IDs for a given plugin."""
+        return frozenset(self._data.get(plugin_name, set()))
+
     def prune(self, live_ids: Set[str]) -> None:
         for plugin_name in self._data:
             self._data[plugin_name] &= live_ids

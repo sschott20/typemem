@@ -49,6 +49,38 @@ class ObservationRunner:
             except Exception as e:
                 logger.error("Plugin '%s' teardown error: %s", plugin.name, e)
 
+    def flush(self) -> None:
+        """Run all plugins once (synchronous). Used by consolidation engine
+        to ensure M1 is up-to-date before reading."""
+        for name, plugin in self._plugins.items():
+            try:
+                plugin.run()
+            except Exception as e:
+                logger.error("Plugin '%s' flush error: %s", name, e)
+
+    def get_live_summary(self, name: str) -> Optional[str]:
+        """Get live summary from a plugin by name. Returns None if plugin not found or has no data."""
+        plugin = self._plugins.get(name)
+        if plugin is None:
+            return None
+        try:
+            return plugin.live_summary()
+        except Exception:
+            logger.error("Plugin '%s' live_summary error", name, exc_info=True)
+            return None
+
+    def get_all_live_summaries(self) -> Dict[str, str]:
+        """Get all available live summaries. Used by viz server."""
+        results = {}
+        for name, plugin in self._plugins.items():
+            try:
+                value = plugin.live_summary()
+                if value:
+                    results[name] = value
+            except Exception:
+                logger.debug("Plugin '%s' live_summary raised, skipping", name)
+        return results
+
     def _run_loop(self, tick_interval: float) -> None:
         last_run: Dict[str, float] = {}
         while self._running:
