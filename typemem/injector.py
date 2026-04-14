@@ -178,7 +178,7 @@ class MemoryInjector:
 
         search_results = [
             {"id": selected_ids[i], "text": lines[i], "tier": scored[i][0].tier.label,
-             "score": selected_scores[i]}
+             "score": selected_scores[i], "source": scored[i][0].source}
             for i in range(len(selected_ids))
         ]
         self._last_results = live_results + search_results
