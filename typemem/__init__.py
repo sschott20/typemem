@@ -11,7 +11,8 @@ from typemem.consolidation import ConsolidationEngine
 from typemem.injector import MemoryInjector, StageConfig
 from typemem.recorder import SessionRecorder
 from typemem.frame_store import FrameStore
-from typemem.plugins.base import ObservationPlugin, ConsolidationPlugin
+from typemem.plugins.base import ObservationPlugin, ConsolidationPlugin, InjectionPlugin
+from typemem.plugins.base_injection import BaseInjectionPlugin, InjectionSpec
 from typemem.plugins.runner import ObservationRunner
 from typemem.plugins.loader import PluginLoader
 from typemem.plugins.text_summary import TextSummaryPlugin
@@ -53,16 +54,23 @@ def create_memory_system(
     obs_runner = ObservationRunner()
     engine = ConsolidationEngine(manager, expiry_interval=cfg.expiry_interval)
 
+    # Collect injection plugins separately — registered after injector is created
+    injection_plugins: List[InjectionPlugin] = []
     for p in (plugins or []):
         if isinstance(p, ObservationPlugin):
             obs_runner.register(p)
         elif isinstance(p, ConsolidationPlugin):
             engine.register_strategy(p)
+        elif isinstance(p, InjectionPlugin):
+            injection_plugins.append(p)
 
     engine.set_observation_runner(obs_runner)
 
     injector = MemoryInjector(manager, cache_ttl=cfg.injector_cache_ttl)
     injector.set_runner(obs_runner)
+
+    for ip in injection_plugins:
+        injector.register_plugin(ip)
 
     if cfg.stage_configs:
         for stage, stage_cfg in cfg.stage_configs.items():

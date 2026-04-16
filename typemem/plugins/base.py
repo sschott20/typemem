@@ -1,7 +1,7 @@
-"""Base classes for memory observation and consolidation plugins."""
+"""Base classes for memory observation, consolidation, and injection plugins."""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from typemem.memory_item import MemoryTier
 from typemem.memory_manager import MemoryManager
@@ -9,6 +9,7 @@ from typemem.processed_index import ProcessedIndex
 
 if TYPE_CHECKING:
     from typemem.memory_item import MemoryItem
+    from typemem.plugins.runner import ObservationRunner
 
 
 class ObservationPlugin(ABC):
@@ -46,6 +47,56 @@ class ObservationPlugin(ABC):
 
     def teardown(self) -> None:
         pass
+
+
+class InjectionPlugin(ABC):
+    """Plugin that builds the prompt context string for a specific planning stage.
+
+    Each stage (e.g. S1, S2, S3) gets its own InjectionPlugin. The plugin has
+    full control over how memory items are retrieved, filtered, scored, and
+    formatted. This enables domain-specific retrieval strategies per stage
+    (e.g. task-type-specific queries, multi-pass retrieval, cross-referenced
+    filtering) that a pure config-driven injector cannot express.
+
+    Lifecycle:
+        1. __init__() — construct with any plugin-specific options
+        2. setup()    — called once at startup with runtime dependencies
+        3. build_context(query, ctx) — called per plan call to produce prompt text
+    """
+
+    @property
+    @abstractmethod
+    def stage(self) -> str:
+        """Stage identifier (e.g. 'S1', 'S2', 'S3'). One plugin per stage."""
+        ...
+
+    def setup(
+        self,
+        memory_manager: MemoryManager,
+        runner: "ObservationRunner",
+    ) -> None:
+        """Called once at startup. Store manager + runner for later use."""
+        self._manager = memory_manager
+        self._runner = runner
+
+    @abstractmethod
+    def build_context(self, query: str, ctx: Optional[Dict[str, Any]] = None) -> str:
+        """Build the memory context string for this stage's prompt.
+
+        Args:
+            query: The query string (typically the task content).
+            ctx: Optional dict of extra context from the caller (e.g. pcb, subtask).
+                 Plugins can ignore this or use it for specialized queries.
+
+        Returns:
+            The formatted memory context to inject into the stage's prompt.
+        """
+        ...
+
+    def last_results(self) -> List[Dict[str, Any]]:
+        """Return details of items included in the most recent build_context call.
+        Used by logging / viz. Each dict has: id, text, tier, score, source."""
+        return getattr(self, "_last_results", [])
 
 
 class ConsolidationPlugin(ABC):

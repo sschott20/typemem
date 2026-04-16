@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from typing import TYPE_CHECKING
 
@@ -10,6 +10,7 @@ from typemem.memory_manager import MemoryManager
 
 if TYPE_CHECKING:
     from typemem.plugins.runner import ObservationRunner
+    from typemem.plugins.base import InjectionPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ class MemoryInjector:
         self._max_cache_size = 100
         self._last_results: List[Dict] = []
         self._runner: Optional["ObservationRunner"] = None
+        self._plugins: Dict[str, "InjectionPlugin"] = {}
 
     @property
     def last_results(self) -> List[Dict]:
@@ -83,13 +85,55 @@ class MemoryInjector:
         """Set the ObservationRunner used for plugin-based live sources."""
         self._runner = runner
 
+    def register_plugin(self, plugin: "InjectionPlugin") -> None:
+        """Register an InjectionPlugin for a specific stage.
+
+        When a plugin is registered for a stage, inject(stage, ...) delegates
+        to the plugin's build_context() instead of using the default YAML
+        config-driven pipeline. This enables per-stage custom retrieval
+        strategies while keeping backward compatibility.
+        """
+        plugin.setup(self._manager, self._runner)
+        self._plugins[plugin.stage] = plugin
+
     def get_live_sources(self) -> Dict[str, str]:
         """Get all live summaries from the observation runner. Used by viz server."""
         if self._runner is None:
             return {}
         return self._runner.get_all_live_summaries()
 
-    def inject(self, stage: str, query: str, max_tokens: Optional[int] = None) -> str:
+    def inject(
+        self,
+        stage: str,
+        query: str,
+        max_tokens: Optional[int] = None,
+        ctx: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        # Plugin path: if an InjectionPlugin is registered for this stage,
+        # delegate to it entirely.
+        plugin = self._plugins.get(stage)
+        if plugin is not None:
+            try:
+                result = plugin.build_context(query, ctx=ctx)
+            except Exception as e:
+                logger.error("InjectionPlugin for stage '%s' failed: %s", stage, e)
+                return ""
+            self._last_results = list(plugin.last_results())
+            if self._recorder and self._last_results:
+                ids = [r["id"] for r in self._last_results if r.get("id") is not None]
+                scores = [r["score"] for r in self._last_results if r.get("score") is not None]
+                if ids:
+                    self._recorder.record_injection(
+                        stage=stage, memory_ids=ids, scores=scores,
+                    )
+            if self._on_injection and result:
+                try:
+                    self._on_injection(stage, query, result, self._last_results)
+                except Exception:
+                    pass
+            return result
+
+        # Fallback: config-driven path (unchanged)
         config = self._configs.get(stage)
         if config is None:
             logger.warning("No injection config for stage '%s'", stage)

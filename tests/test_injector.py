@@ -252,3 +252,84 @@ class TestLiveSources:
         sources = inj.get_live_sources()
         assert "good" in sources
         assert "bad" not in sources
+
+
+# ======================================================================
+# InjectionPlugin tests
+# ======================================================================
+
+from typemem.plugins.base import InjectionPlugin
+from typemem.plugins.base_injection import BaseInjectionPlugin, InjectionSpec
+
+
+class TestInjectionPlugin:
+    def test_register_plugin_overrides_config(self, tmp_path):
+        """A registered InjectionPlugin is used instead of the config path."""
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        manager.add(MemoryItem(
+            document="this should NOT appear", tier=MemoryTier.M1,
+            memory_type=MemoryType.OBSERVATION, robot_id="test",
+        ))
+        inj = MemoryInjector(manager, cache_ttl=0)
+
+        class MyPlugin(InjectionPlugin):
+            @property
+            def stage(self): return "S1"
+            def build_context(self, query, ctx=None):
+                return "CUSTOM CONTEXT"
+
+        inj.register_plugin(MyPlugin())
+        result = inj.inject("S1", "anything")
+        assert result == "CUSTOM CONTEXT"
+
+    def test_base_injection_plugin_matches_config_behavior(self, tmp_path):
+        """BaseInjectionPlugin with same spec produces equivalent output."""
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        manager.add(MemoryItem(
+            document="the robot likes cats", tier=MemoryTier.M1,
+            memory_type=MemoryType.OBSERVATION, robot_id="test",
+        ))
+
+        class CatPlugin(BaseInjectionPlugin):
+            @property
+            def stage(self): return "S1"
+            @property
+            def spec(self): return InjectionSpec(
+                tiers=[MemoryTier.M1], max_tokens=500,
+            )
+
+        inj = MemoryInjector(manager, cache_ttl=0)
+        inj.register_plugin(CatPlugin())
+        result = inj.inject("S1", "cats")
+        assert "likes cats" in result
+
+    def test_plugin_ctx_passthrough(self, tmp_path):
+        """Plugins receive ctx dict from inject() caller."""
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        inj = MemoryInjector(manager, cache_ttl=0)
+
+        captured = {}
+        class CtxPlugin(InjectionPlugin):
+            @property
+            def stage(self): return "S1"
+            def build_context(self, query, ctx=None):
+                captured["ctx"] = ctx
+                return "x"
+
+        inj.register_plugin(CtxPlugin())
+        inj.inject("S1", "q", ctx={"foo": "bar"})
+        assert captured["ctx"] == {"foo": "bar"}
+
+    def test_plugin_exception_returns_empty(self, tmp_path):
+        """A plugin that raises returns '' rather than crashing."""
+        manager = MemoryManager(persist_dir=str(tmp_path), robot_id="test")
+        inj = MemoryInjector(manager, cache_ttl=0)
+
+        class BadPlugin(InjectionPlugin):
+            @property
+            def stage(self): return "S1"
+            def build_context(self, query, ctx=None):
+                raise RuntimeError("boom")
+
+        inj.register_plugin(BadPlugin())
+        assert inj.inject("S1", "q") == ""
