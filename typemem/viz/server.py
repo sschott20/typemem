@@ -82,7 +82,7 @@ def _entry_to_dict(item) -> dict:
         "memory_type": item.memory_type.value,
         "robot_id": item.robot_id,
         "timestamp": item.timestamp,
-        "keywords": item.keywords,
+        "tags": sorted(item.tags),
         "source": item.source,
     }
 
@@ -142,23 +142,20 @@ class VizHandler(BaseHTTPRequestHandler):
             # type_counts: memory_type.value -> count
             type_counter: Counter = Counter()
             source_counter: Counter = Counter()
-            keyword_counter: Counter = Counter()
+            tag_counter: Counter = Counter()
             timestamps: list[float] = []
 
             for item in all_items:
                 type_counter[item.memory_type.value] += 1
                 if item.source:
                     source_counter[item.source] += 1
-                if item.keywords:
-                    for kw in item.keywords.split(","):
-                        kw = kw.strip().lower()
-                        if kw:
-                            keyword_counter[kw] += 1
+                for tag in item.tags:
+                    tag_counter[tag.lower()] += 1
                 timestamps.append(item.timestamp)
 
-            # keywords: top 20
-            keywords = [{"keyword": kw, "count": c}
-                        for kw, c in keyword_counter.most_common(20)]
+            # tags: top 20
+            tags = [{"tag": t, "count": c}
+                    for t, c in tag_counter.most_common(20)]
 
             # timeline: 30 bins spanning all items
             timeline: list[dict] = []
@@ -188,7 +185,7 @@ class VizHandler(BaseHTTPRequestHandler):
                 "injections_count": len(inject_events),
                 "type_counts": dict(type_counter),
                 "source_counts": dict(source_counter),
-                "keywords": keywords,
+                "tags": tags,
                 "timeline": timeline,
             })
 

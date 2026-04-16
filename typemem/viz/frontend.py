@@ -392,9 +392,11 @@ html, body {
   function renderCharts() {
     var kwEl = document.getElementById("keyword-chart");
     var tlEl = document.getElementById("timeline-chart");
-    // Keyword frequency
-    var kws = stats.keywords || {};
-    var kwPairs = Object.keys(kws).map(function(k) { return {k:k, v:kws[k]}; });
+    // Tag frequency (renamed from keywords)
+    var tags = stats.tags || stats.keywords || [];
+    var kwPairs = Array.isArray(tags)
+      ? tags.map(function(t) { return {k:t.tag || t.keyword, v:t.count}; })
+      : Object.keys(tags).map(function(k) { return {k:k, v:tags[k]}; });
     kwPairs.sort(function(a,b) { return b.v - a.v; });
     kwPairs = kwPairs.slice(0, 10);
     var maxKw = kwPairs.length ? kwPairs[0].v : 1;
@@ -491,7 +493,7 @@ html, body {
         html += '<div class="detail-field"><span class="label">Type:</span> ' + esc(e.memory_type) + '</div>';
         html += '<div class="detail-field"><span class="label">Time:</span> ' + esc(fmtTime(e.timestamp)) + '</div>';
         html += '<div class="detail-field"><span class="label">Links:</span> ' + (e.links || 0) + '</div>';
-        if (e.keywords) html += '<div class="detail-field"><span class="label">Keywords:</span> ' + esc(e.keywords) + '</div>';
+        if (e.tags && e.tags.length) html += '<div class="detail-field"><span class="label">Tags:</span> ' + esc(e.tags.join(", ")) + '</div>';
         if (e.source) html += '<div class="detail-field"><span class="label">Source:</span> ' + esc(e.source) + '</div>';
         if (semanticMode && e.distance != null) html += '<div class="detail-field"><span class="label">Distance:</span> ' + e.distance.toFixed(4) + '</div>';
         html += '<div class="detail-links" id="links-' + esc(e.id) + '"></div>';

@@ -196,11 +196,19 @@ class MemoryManager:
     def update_document(self, item_id: str, new_document: str):
         self._collection.update(ids=[item_id], documents=[new_document])
 
-    def expire_tier(self, tier: MemoryTier) -> List[str]:
-        if tier.retention is None:
+    def expire_tier(self, tier: MemoryTier, retention_seconds: Optional[int] = None) -> List[str]:
+        """Delete items in `tier` older than `retention_seconds`. Returns deleted IDs.
+
+        If retention_seconds is None, uses DEFAULT_TIER_RETENTION for backward compat.
+        Prefer explicit retention arg — the default is just a suggestion.
+        """
+        if retention_seconds is None:
+            from typemem.memory_item import DEFAULT_TIER_RETENTION
+            retention_seconds = DEFAULT_TIER_RETENTION.get(tier)
+        if retention_seconds is None:
             return []
 
-        cutoff = time.time() - tier.retention
+        cutoff = time.time() - retention_seconds
         results = self._collection.get(
             where={"$and": [{"tier": tier.label}, {"timestamp": {"$lt": cutoff}}]},
             include=[],
@@ -228,21 +236,10 @@ class MemoryManager:
         return items
 
     def get_by_source(self, source: str, tier: Optional[MemoryTier] = None) -> List[MemoryItem]:
-        """Return items matching a source metadata value, optionally filtered by tier."""
-        if tier is not None:
-            where = {"$and": [{"source": source}, {"tier": tier.label}]}
-        else:
-            where = {"source": source}
-        results = self._collection.get(
-            where=where,
-            include=["documents", "metadatas"],
-        )
-        items = []
-        for i, doc_id in enumerate(results["ids"]):
-            items.append(MemoryItem.from_chromadb(
-                doc_id, results["documents"][i], results["metadatas"][i],
-            ))
-        return items
+        """Return items whose tags contain 'source:<source>'. Convenience wrapper
+        around get_by_tag — maintained for readability; source is just a tag
+        convention, not a core field."""
+        return self.get_by_tag(f"source:{source}", tier=tier)
 
     def get_by_tag(
         self,

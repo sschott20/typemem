@@ -1,43 +1,43 @@
 """Tier retention garbage collector plugin.
 
-Deletes memory items older than their tier's retention window. Default behavior
-preserves the previous hardcoded expiry policy (M0: 60s, M1: 10min, M2: 1hr, M3: never).
+Deletes memory items older than a configured retention window. Retention
+is a plugin-level policy — applications can pass custom retention values
+per tier, or rely on the defaults in DEFAULT_TIER_RETENTION.
 
-Typemem ships this as a default plugin but does not register it automatically —
-applications opt in by including it in their plugin list. Applications with
-different retention policies can subclass or write a custom GC plugin instead.
+Typemem does not register this automatically — applications opt in.
 """
 
 import logging
-from typing import List, Optional
+import time
+from typing import Dict, List, Optional
 
-from typemem.memory_item import MemoryTier
+from typemem.memory_item import MemoryTier, DEFAULT_TIER_RETENTION
 from typemem.memory_manager import MemoryManager
-from typemem.processed_index import ProcessedIndex
 from typemem.plugins.base import ConsolidationPlugin
 
 logger = logging.getLogger(__name__)
 
 
 class TierRetentionGC(ConsolidationPlugin):
-    """Periodically deletes items whose age exceeds their tier's retention.
+    """Periodically deletes items whose age exceeds a per-tier retention.
 
-    Uses the retention values defined on MemoryTier (M0: 60s, M1: 600s, M2: 3600s,
-    M3: None = persistent). Also prunes the processed_index to drop entries for
-    deleted items.
+    Retention is configured via the `retention` dict passed to __init__
+    (tier → seconds, None = persistent). If None is passed, uses the
+    framework default DEFAULT_TIER_RETENTION.
     """
 
     def __init__(self, interval_seconds: float = 60.0,
-                 tiers: Optional[List[MemoryTier]] = None):
+                 retention: Optional[Dict[MemoryTier, Optional[int]]] = None):
         """
         Args:
             interval_seconds: how often to run GC (default 60s).
-            tiers: which tiers to check. None = all tiers with non-None retention.
+            retention: per-tier retention in seconds. None value = persistent.
+                If the whole arg is None, uses DEFAULT_TIER_RETENTION.
         """
         self._interval = interval_seconds
-        self._tiers = tiers if tiers is not None else [
-            t for t in MemoryTier if t.retention is not None
-        ]
+        self._retention = (
+            dict(retention) if retention is not None else dict(DEFAULT_TIER_RETENTION)
+        )
 
     @property
     def name(self) -> str:
@@ -47,21 +47,21 @@ class TierRetentionGC(ConsolidationPlugin):
     def interval_seconds(self) -> float:
         return self._interval
 
-    def run(
-        self,
-        manager: MemoryManager,
-        llm=None,
-        processed_index: Optional[ProcessedIndex] = None,
-    ) -> List[str]:
+    def run(self, manager: MemoryManager, llm=None) -> List[str]:
+        now = time.time()
         total_expired = 0
-        for tier in self._tiers:
-            expired = manager.expire_tier(tier)
-            total_expired += len(expired)
+        for tier, seconds in self._retention.items():
+            if seconds is None:
+                continue
+            cutoff = now - seconds
+            # Find items in this tier older than cutoff
+            items = manager.get_by_tier(tier)
+            expired_ids = [it.id for it in items if it.timestamp < cutoff]
+            if expired_ids:
+                for iid in expired_ids:
+                    manager.delete(iid)
+                total_expired += len(expired_ids)
 
-        if total_expired > 0 and processed_index is not None:
-            all_ids = manager.all_ids()
-            processed_index.prune(all_ids)
-            processed_index.save()
+        if total_expired > 0:
             logger.info("TierRetentionGC: expired %d items", total_expired)
-
         return []
