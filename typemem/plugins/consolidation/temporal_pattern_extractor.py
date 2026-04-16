@@ -41,7 +41,7 @@ class TemporalPatternExtractor(ConsolidationPlugin):
             logger.debug("TemporalPattern: skipping, no LLM available")
             return []
 
-        unprocessed = self.get_unprocessed(manager, processed_index) if processed_index else manager.get_by_tier(self.source_tier)
+        unprocessed = self.get_unprocessed(manager, processed_index, tiers=[self.source_tier] if self.source_tier else None) if processed_index else manager.get_by_tier(self.source_tier)
 
         if len(unprocessed) < self._min_summaries:
             logger.debug("TemporalPattern: skipping, only %d summaries (need %d)", len(unprocessed), self._min_summaries)

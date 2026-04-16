@@ -67,7 +67,7 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         manager = MemoryManager(persist_dir=tmpdir, robot_id="demo")
-        engine = ConsolidationEngine(manager, expiry_interval=9999)
+        engine = ConsolidationEngine(manager)
         engine.register_strategy(TextSummaryPlugin(batch_size=3, interval=0))
         injector = MemoryInjector(manager, cache_ttl=0)
         injector.set_stage_config("bench", StageConfig(

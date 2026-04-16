@@ -244,6 +244,74 @@ class MemoryManager:
             ))
         return items
 
+    def get_by_tag(
+        self,
+        tag: str,
+        tier: Optional[MemoryTier] = None,
+        exclude: bool = False,
+    ) -> List[MemoryItem]:
+        """Return items whose tags field contains the given tag.
+
+        Args:
+            tag: tag to match (e.g. "unprocessed").
+            tier: optional tier filter.
+            exclude: if True, return items that do NOT have the tag.
+        """
+        if tier is not None:
+            results = self._collection.get(
+                where={"tier": tier.label},
+                include=["documents", "metadatas"],
+            )
+        else:
+            results = self._collection.get(include=["documents", "metadatas"])
+        items = []
+        for i, doc_id in enumerate(results["ids"]):
+            item = MemoryItem.from_chromadb(
+                doc_id, results["documents"][i], results["metadatas"][i],
+            )
+            has_tag = tag in item.tags
+            if has_tag != exclude:
+                items.append(item)
+        return items
+
+    def add_tag(self, item_id: str, tag: str) -> bool:
+        """Add a tag to an item's tags set. Returns True if modified."""
+        try:
+            result = self._collection.get(ids=[item_id], include=["metadatas"])
+            if not result["ids"]:
+                return False
+            metadata = result["metadatas"][0]
+            tags_str = metadata.get("tags", "")
+            tags = set(t for t in tags_str.split(",") if t) if tags_str else set()
+            if tag in tags:
+                return False
+            tags.add(tag)
+            metadata["tags"] = ",".join(sorted(tags))
+            self._collection.update(ids=[item_id], metadatas=[metadata])
+            return True
+        except Exception as e:
+            logger.error("add_tag failed for %s: %s", item_id, e)
+            return False
+
+    def remove_tag(self, item_id: str, tag: str) -> bool:
+        """Remove a tag from an item's tags set. Returns True if modified."""
+        try:
+            result = self._collection.get(ids=[item_id], include=["metadatas"])
+            if not result["ids"]:
+                return False
+            metadata = result["metadatas"][0]
+            tags_str = metadata.get("tags", "")
+            tags = set(t for t in tags_str.split(",") if t) if tags_str else set()
+            if tag not in tags:
+                return False
+            tags.discard(tag)
+            metadata["tags"] = ",".join(sorted(tags)) if tags else ""
+            self._collection.update(ids=[item_id], metadatas=[metadata])
+            return True
+        except Exception as e:
+            logger.error("remove_tag failed for %s: %s", item_id, e)
+            return False
+
     def count(self, tier: Optional[MemoryTier] = None) -> int:
         if tier is None:
             return self._collection.count()

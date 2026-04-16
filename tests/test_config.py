@@ -11,7 +11,6 @@ class TestMemoryConfig:
         cfg = MemoryConfig()
         assert cfg.link_top_k == 3
         assert cfg.dedup_distance_threshold == 0.05
-        assert cfg.expiry_interval == 60.0
 
     def test_custom_values(self):
         cfg = MemoryConfig(link_top_k=5, dedup_distance_threshold=0.1)

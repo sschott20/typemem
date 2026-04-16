@@ -2,7 +2,6 @@ import pytest
 from typemem.plugins.base import ObservationPlugin, ConsolidationPlugin
 from typemem.memory_item import MemoryItem, MemoryTier, MemoryType
 from typemem.memory_manager import MemoryManager
-from typemem.processed_index import ProcessedIndex
 
 
 class DummyObserver(ObservationPlugin):
@@ -24,18 +23,10 @@ class DummyConsolidator(ConsolidationPlugin):
         return "dummy_consolidator"
 
     @property
-    def source_tier(self):
-        return MemoryTier.M1
-
-    @property
-    def target_tier(self):
-        return MemoryTier.M2
-
-    @property
     def interval_seconds(self):
         return 60.0
 
-    def run(self, manager, llm=None, processed_index=None):
+    def run(self, manager, llm=None):
         return []
 
 
@@ -62,36 +53,26 @@ class TestConsolidationPlugin:
     def test_instantiate(self):
         con = DummyConsolidator()
         assert con.name == "dummy_consolidator"
-        assert con.source_tier == MemoryTier.M1
-        assert con.target_tier == MemoryTier.M2
+        assert con.interval_seconds == 60.0
 
-    def test_get_unprocessed(self, manager, tmp_path):
+    def test_tag_based_processed_tracking(self, manager):
+        """Plugins track processed items via tags, not a separate index."""
         con = DummyConsolidator()
-        idx = ProcessedIndex(str(tmp_path / "proc.json"))
         item = MemoryItem(document="test", tier=MemoryTier.M1,
                           memory_type=MemoryType.OBSERVATION, robot_id="r1")
         manager.add(item)
-        unprocessed = con.get_unprocessed(manager, idx)
-        assert len(unprocessed) == 1
-        assert unprocessed[0].id == item.id
+        tag = f"processed:{con.name}"
 
-    def test_mark_done(self, tmp_path):
-        con = DummyConsolidator()
-        idx = ProcessedIndex(str(tmp_path / "proc.json"))
-        con.mark_done(idx, ["id1", "id2"])
-        assert idx.is_processed("dummy_consolidator", "id1")
-        assert idx.is_processed("dummy_consolidator", "id2")
-
-    def test_get_unprocessed_filters_processed(self, manager, tmp_path):
-        con = DummyConsolidator()
-        idx = ProcessedIndex(str(tmp_path / "proc.json"))
-        item1 = MemoryItem(document="first", tier=MemoryTier.M1,
-                           memory_type=MemoryType.OBSERVATION, robot_id="r1")
-        item2 = MemoryItem(document="second", tier=MemoryTier.M1,
-                           memory_type=MemoryType.OBSERVATION, robot_id="r1")
-        manager.add(item1)
-        manager.add(item2)
-        con.mark_done(idx, [item1.id])
-        unprocessed = con.get_unprocessed(manager, idx)
+        # Initially unprocessed
+        unprocessed = manager.get_by_tag(tag, exclude=True)
         assert len(unprocessed) == 1
-        assert unprocessed[0].id == item2.id
+
+        # After tagging, it's filtered out
+        manager.add_tag(item.id, tag)
+        unprocessed = manager.get_by_tag(tag, exclude=True)
+        assert len(unprocessed) == 0
+
+        # Reverse filter finds the tagged items
+        processed = manager.get_by_tag(tag)
+        assert len(processed) == 1
+        assert processed[0].id == item.id

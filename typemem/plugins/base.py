@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from typemem.memory_item import MemoryTier
 from typemem.memory_manager import MemoryManager
-from typemem.processed_index import ProcessedIndex
 
 if TYPE_CHECKING:
     from typemem.memory_item import MemoryItem
@@ -100,7 +99,14 @@ class InjectionPlugin(ABC):
 
 
 class ConsolidationPlugin(ABC):
-    """Plugin that transforms memories between tiers."""
+    """Plugin that reads memory and produces memory or side effects.
+
+    Plugins are arbitrary — input is some memories, output is some memories
+    (or deletions, or events pushed to the bus). The framework does not
+    prescribe which tiers a plugin reads from or writes to, nor does it
+    track which items a plugin has processed. Plugins use tags on memory
+    items to communicate state (e.g. add "processed:myplugin" after handling).
+    """
 
     @property
     @abstractmethod
@@ -109,42 +115,14 @@ class ConsolidationPlugin(ABC):
 
     @property
     @abstractmethod
-    def source_tier(self) -> MemoryTier:
-        ...
-
-    @property
-    @abstractmethod
-    def target_tier(self) -> MemoryTier:
-        ...
-
-    @property
-    @abstractmethod
     def interval_seconds(self) -> float:
         ...
-
-    def get_unprocessed(
-        self,
-        manager: MemoryManager,
-        processed_index: ProcessedIndex,
-    ) -> List["MemoryItem"]:
-        all_items = manager.get_by_tier(self.source_tier)
-        unprocessed_ids = set(processed_index.filter_unprocessed(
-            self.name, [item.id for item in all_items],
-        ))
-        return [item for item in all_items if item.id in unprocessed_ids]
-
-    def mark_done(
-        self,
-        processed_index: ProcessedIndex,
-        item_ids: List[str],
-    ) -> None:
-        processed_index.mark_processed(self.name, item_ids)
 
     @abstractmethod
     def run(
         self,
         manager: MemoryManager,
         llm=None,
-        processed_index: Optional[ProcessedIndex] = None,
     ) -> List[str]:
+        """Run the plugin. Return list of newly-created item IDs."""
         ...

@@ -41,7 +41,7 @@ class TextSummaryPlugin(ConsolidationPlugin):
         llm=None,
         processed_index: Optional[ProcessedIndex] = None,
     ) -> List[str]:
-        unprocessed = self.get_unprocessed(manager, processed_index)
+        unprocessed = self.get_unprocessed(manager, processed_index, tiers=[self.source_tier] if self.source_tier else None)
         if len(unprocessed) < self._batch_size:
             return []
 

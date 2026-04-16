@@ -6,7 +6,6 @@ from typing import List, Optional, Union
 from typemem.memory_item import MemoryItem, MemoryTier, MemoryType
 from typemem.memory_manager import MemoryManager
 from typemem.link_index import LinkIndex
-from typemem.processed_index import ProcessedIndex
 from typemem.consolidation import ConsolidationEngine
 from typemem.injector import MemoryInjector, StageConfig
 from typemem.recorder import SessionRecorder
@@ -17,6 +16,7 @@ from typemem.plugins.runner import ObservationRunner
 from typemem.plugins.loader import PluginLoader
 from typemem.plugins.text_summary import TextSummaryPlugin
 from typemem.plugins.llm_summary import LLMSummaryPlugin
+from typemem.plugins.tier_retention_gc import TierRetentionGC
 from typemem.llm import LLMCallable, make_anthropic_llm
 from typemem.config import MemoryConfig, system_from_config
 from typemem import events
@@ -52,7 +52,7 @@ def create_memory_system(
 
     # Sort plugins by type
     obs_runner = ObservationRunner()
-    engine = ConsolidationEngine(manager, expiry_interval=cfg.expiry_interval)
+    engine = ConsolidationEngine(manager)
 
     # Collect injection plugins separately — registered after injector is created
     injection_plugins: List[InjectionPlugin] = []

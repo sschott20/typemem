@@ -34,7 +34,7 @@ class SituationSummaryPlugin(ConsolidationPlugin):
         if llm is None:
             return []
 
-        unprocessed = self.get_unprocessed(manager, processed_index) if processed_index else manager.get_by_tier(self.source_tier)
+        unprocessed = self.get_unprocessed(manager, processed_index, tiers=[self.source_tier] if self.source_tier else None) if processed_index else manager.get_by_tier(self.source_tier)
         if not unprocessed:
             return []
 

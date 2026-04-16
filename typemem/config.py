@@ -18,7 +18,6 @@ class MemoryConfig:
     link_top_k: int = LINK_TOP_K
     link_distance_threshold: float = LINK_DISTANCE_THRESHOLD
     dedup_distance_threshold: float = DEDUP_DISTANCE_THRESHOLD
-    expiry_interval: float = 60.0
     stage_configs: Optional[Dict[str, StageConfig]] = None
     injector_cache_ttl: float = _DEFAULT_CACHE_TTL
 
@@ -91,7 +90,6 @@ def system_from_config(
         link_top_k=mem_cfg.get("link_top_k", LINK_TOP_K),
         link_distance_threshold=mem_cfg.get("link_distance_threshold", LINK_DISTANCE_THRESHOLD),
         dedup_distance_threshold=mem_cfg.get("dedup_distance_threshold", DEDUP_DISTANCE_THRESHOLD),
-        expiry_interval=mem_cfg.get("expiry_interval", 60.0),
         injector_cache_ttl=mem_cfg.get("injector_cache_ttl", _DEFAULT_CACHE_TTL),
         stage_configs=stage_configs,
     )

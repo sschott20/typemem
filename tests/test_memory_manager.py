@@ -15,13 +15,13 @@ class TestAdd:
         assert item_id == item.id
 
     def test_add_and_get(self, manager):
-        item = _make_item("visible chair near waypoint 3", waypoint=3)
+        item = _make_item("visible chair near waypoint 3", metadata={"waypoint": 3})
         manager.add(item)
         retrieved = manager.get(item.id)
         assert retrieved is not None
         assert retrieved.document == item.document
         assert retrieved.tier == MemoryTier.M1
-        assert retrieved.waypoint == 3
+        assert retrieved.metadata.get("waypoint") == 3
 
     def test_dedup_same_tier(self, manager):
         item1 = _make_item("the red ball is on the table")

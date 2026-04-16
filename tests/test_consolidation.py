@@ -3,10 +3,10 @@ import pytest
 from typemem.consolidation import ConsolidationEngine
 from typemem.plugins.base import ConsolidationPlugin
 from typemem.memory_item import MemoryItem, MemoryTier, MemoryType
-from typemem.processed_index import ProcessedIndex
 
 
 class SimpleConsolidator(ConsolidationPlugin):
+    """Example plugin using the tag-based pattern to track processed items."""
     def __init__(self):
         self.run_count = 0
 
@@ -15,20 +15,16 @@ class SimpleConsolidator(ConsolidationPlugin):
         return "simple"
 
     @property
-    def source_tier(self):
-        return MemoryTier.M1
-
-    @property
-    def target_tier(self):
-        return MemoryTier.M2
-
-    @property
     def interval_seconds(self):
         return 0.1
 
-    def run(self, manager, llm=None, processed_index=None):
+    def run(self, manager, llm=None):
         self.run_count += 1
-        unprocessed = self.get_unprocessed(manager, processed_index)
+        processed_tag = f"processed:{self.name}"
+        unprocessed = [
+            it for it in manager.get_by_tier(MemoryTier.M1)
+            if processed_tag not in it.tags
+        ]
         if len(unprocessed) < 2:
             return []
         summary = "[Summary] " + "; ".join(i.document for i in unprocessed)
@@ -37,7 +33,8 @@ class SimpleConsolidator(ConsolidationPlugin):
             memory_type=MemoryType.SUMMARY, robot_id="test",
         )
         mid = manager.add(item)
-        self.mark_done(processed_index, [i.id for i in unprocessed])
+        for it in unprocessed:
+            manager.add_tag(it.id, processed_tag)
         return [mid]
 
 
@@ -85,7 +82,9 @@ class TestConsolidationEngine:
         engine.stop()
         assert plugin.run_count >= 1
 
-    def test_expire_tiers(self, manager):
+    def test_expire_tiers_via_gc_plugin(self, manager):
+        """Retention/expiry is now a plugin concern, not core consolidation engine."""
+        from typemem.plugins.tier_retention_gc import TierRetentionGC
         old = MemoryItem(
             document="old item", tier=MemoryTier.M1,
             memory_type=MemoryType.OBSERVATION, robot_id="r1",
@@ -93,6 +92,6 @@ class TestConsolidationEngine:
         )
         manager.add(old)
         assert manager.count() == 1
-        engine = ConsolidationEngine(manager, expiry_interval=0.0)
-        engine.run_all()
+        gc = TierRetentionGC()
+        gc.run(manager)
         assert manager.count() == 0

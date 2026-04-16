@@ -157,7 +157,7 @@ def run_benchmark(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         manager = MemoryManager(persist_dir=tmpdir, robot_id="bench")
-        engine = ConsolidationEngine(manager, expiry_interval=9999)
+        engine = ConsolidationEngine(manager)
         for plugin in strategy.make_fresh_plugins():
             engine.register_strategy(plugin)
 
