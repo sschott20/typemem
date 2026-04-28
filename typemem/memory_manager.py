@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import chromadb
 from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
@@ -270,6 +270,32 @@ class MemoryManager:
             if has_tag != exclude:
                 items.append(item)
         return items
+
+    def update_metadata(self, item_id: str, updates: Dict[str, Any]) -> bool:
+        """Merge ``updates`` into the item's metadata. Returns True if applied.
+
+        Use for plugin-private cached state (e.g. parsed/compiled artifacts).
+        Core fields (tier, memory_type, robot_id, timestamp, frame_ref, tags)
+        are protected — pass them through tags or document edits instead.
+        """
+        try:
+            result = self._collection.get(ids=[item_id], include=["metadatas"])
+            if not result["ids"]:
+                return False
+            metadata = dict(result["metadatas"][0])
+            from typemem.memory_item import _CORE_META_KEYS
+            for k, v in updates.items():
+                if k in _CORE_META_KEYS:
+                    continue
+                if v is None:
+                    metadata.pop(k, None)
+                else:
+                    metadata[k] = v
+            self._collection.update(ids=[item_id], metadatas=[metadata])
+            return True
+        except Exception as e:
+            logger.error("update_metadata failed for %s: %s", item_id, e)
+            return False
 
     def add_tag(self, item_id: str, tag: str) -> bool:
         """Add a tag to an item's tags set. Returns True if modified."""
