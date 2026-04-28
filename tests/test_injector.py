@@ -295,7 +295,7 @@ class TestInjectionPlugin:
             def stage(self): return "S1"
             @property
             def spec(self): return InjectionSpec(
-                tiers=[MemoryTier.M1], max_tokens=500,
+                included_tags=["tier:M1"], max_tokens=500,
             )
 
         inj = MemoryInjector(manager, cache_ttl=0)

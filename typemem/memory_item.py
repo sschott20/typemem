@@ -89,6 +89,11 @@ class MemoryItem:
         # Mirror memory_type into tags (type:observation, type:lesson, etc.)
         if self.memory_type is not None:
             self.tags.add(f"type:{self.memory_type.value}")
+        # Mirror tier into tags (tier:M0, tier:M1, etc.) so it's filterable
+        # alongside other tags. The structured `tier` field is kept for
+        # ergonomics, retention queries, and ChromaDB indexed lookups.
+        if self.tier is not None:
+            self.tags.add(f"tier:{self.tier.label}")
 
     def to_metadata(self) -> Dict[str, Any]:
         meta = {
